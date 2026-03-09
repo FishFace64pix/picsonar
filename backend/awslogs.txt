@@ -1,0 +1,7 @@
+﻿INIT_START Runtime Version: nodejs:20.v95	Runtime Version ARN: arn:aws:lambda:eu-central-1::runtime:2d788b26ac416854c5eb831c9f46cb2e0a0ddcee84b1a9b114acbdfdb644c8c1
+2026-03-02 02:56:47.959	ERROR	Uncaught Exception 	{"errorType":"Runtime.ImportModuleError","errorMessage":"Error: Cannot find module 'login'\nRequire stack:\n- /var/runtime/index.mjs","stack":["Runtime.ImportModuleError: Error: Cannot find module 'login'","Require stack:","- /var/runtime/index.mjs","    at _loadUserApp (file:///var/runtime/index.mjs:1192:17)","    at async UserFunction.js.module.exports.load (file:///var/runtime/index.mjs:1235:21)","    at async start (file:///var/runtime/index.mjs:1454:23)","    at async file:///var/runtime/index.mjs:1464:1"]}
+INIT_REPORT Init Duration: 155.97 ms	Phase: init	Status: error	Error Type: Runtime.ImportModuleError
+2026-03-02 02:56:48.065	ERROR	Uncaught Exception 	{"errorType":"Runtime.ImportModuleError","errorMessage":"Error: Cannot find module 'login'\nRequire stack:\n- /var/runtime/index.mjs","stack":["Runtime.ImportModuleError: Error: Cannot find module 'login'","Require stack:","- /var/runtime/index.mjs","    at _loadUserApp (file:///var/runtime/index.mjs:1192:17)","    at async UserFunction.js.module.exports.load (file:///var/runtime/index.mjs:1235:21)","    at async start (file:///var/runtime/index.mjs:1454:23)","    at async file:///var/runtime/index.mjs:1464:1"]}
+INIT_REPORT Init Duration: 93.58 ms	Phase: invoke	Status: error	Error Type: Runtime.ImportModuleError
+START
+END Duration: 104.54 ms (init: error) Memory Used: 70 MB

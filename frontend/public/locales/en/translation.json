@@ -1,0 +1,228 @@
+{
+    "navbar": {
+        "howItWorks": "How it Works",
+        "pricing": "Pricing",
+        "profile": "Profile",
+        "login": "Login",
+        "getStarted": "Get Started",
+        "dashboard": "Dashboard",
+        "signOut": "Sign Out"
+    },
+    "billingForm": {
+        "title": "Billing Details (B2B)",
+        "subtitle": "All purchases require billing details as required by law.",
+        "companyName": "Company Name",
+        "cuiCif": "CUI/CIF",
+        "vatPayer": "VAT Payer",
+        "country": "Country",
+        "romania": "Romania",
+        "otherCountry": "Other Country",
+        "city": "City",
+        "address": "Address (Street + Number)",
+        "postalCode": "Postal Code",
+        "billingEmail": "Billing Email",
+        "additionalDetails": "Additional details (optional)",
+        "regCom": "Trade Reg. No. (J)",
+        "bank": "Bank",
+        "iban": "IBAN",
+        "requiredFields": "Required fields",
+        "errors": {
+            "validCui": "✓ Valid CUI",
+            "invalidCui": "Invalid CUI",
+            "invalidEmail": "Invalid email format",
+            "required": "Required"
+        }
+    },
+    "checkout": {
+        "backToBilling": "Back to billing details",
+        "paymentMethod": "Payment Method",
+        "processing": "Processing...",
+        "payNow": "Pay Now",
+        "messages": {
+            "success": "Payment successful!",
+            "processing": "Your payment is being processed.",
+            "failed": "Payment failed. Please try again.",
+            "error": "Something went wrong.",
+            "unexpected": "An unexpected error occurred."
+        },
+        "title": "Complete Purchase",
+        "steps": {
+            "billing": "Billing Details",
+            "payment": "Payment"
+        },
+        "errors": {
+            "fillRequired": "Please fill in all required fields.",
+            "invalidCui": "Invalid CUI. Please verify the number entered.",
+            "allRequired": "All required fields must be filled in.",
+            "invalidEmail": "Format email invalid.",
+            "creatingPayment": "Error creating payment"
+        },
+        "preparingPayment": "Preparing payment...",
+        "continuePayment": "Continue to Payment",
+        "badges": {
+            "secure": "Secure Payment",
+            "encryption": "256-BIT ENCRYPTION",
+            "hosted": "EU Hosted",
+            "region": "AWS FRANKFURT REGION",
+            "gdpr": "GDPR Compliant",
+            "privacy": "DATA PRIVACY BY DESIGN"
+        }
+    },
+    "landing": {
+        "audience": {
+            "photographers": "For Photographers",
+            "guests": "For Guests"
+        },
+        "photographer": {
+            "badge": "Stand out from other wedding photographers",
+            "title": "Add AI Face Search to",
+            "titleHighlight": "Your Wedding Packages.",
+            "description": "Earn",
+            "descriptionEarn": "+300–700 RON extra",
+            "descriptionSuffix": "per event with a premium AI photo experience that guests will talk about.",
+            "cta": "Book a 3-Min Demo",
+            "ctaSecondary": "See How It Works"
+        },
+        "guest": {
+            "badge": "Find yourself in any gallery instantly",
+            "title": "Find Your Photos.",
+            "titleHighlight": "In Seconds, Not Hours.",
+            "description": "Take a quick selfie and let our AI scour the entire event gallery to find",
+            "descriptionHighlight": "Every Single Photo",
+            "descriptionSuffix": "of you.",
+            "cta": "Create Free Gallery"
+        },
+        "features": {
+            "noApp": "No App Download",
+            "noLogin": "No Login Required",
+            "instant": "Instant Results"
+        },
+        "howItWorks": {
+            "title": "The Most Modern Delivery.",
+            "subtitle": "Skip the generic download links. Give them an interactive AI experience.",
+            "steps": {
+                "step1": {
+                    "title": "Upload Your Gallery",
+                    "description": "Simply upload your full resolution edits. Our AI indexes thousands of photos in minutes."
+                },
+                "step2": {
+                    "title": "Guests Snap a Selfie",
+                    "description": "No app install. Guests scan a QR code at the venue, snap a selfie, and instantly see their photos."
+                },
+                "step3": {
+                    "title": "Upsell & Earn",
+                    "description": "Include this as a premium add-on to your wedding packages or use it as a lead generator."
+                }
+            }
+        },
+        "whiteLabel": {
+            "title": "Your Brand.",
+            "titleHighlight": "Powered by AI.",
+            "description": "Don't send your clients to another platform. Keep your brand front and center. Agency accounts get full white-label capabilities.",
+            "list1": "Your custom logo on every gallery",
+            "list2": "Custom domain support",
+            "list3": "Client never sees PicSonar branding"
+        },
+        "pricingSection": {
+            "title": "Simple, Professional Pricing.",
+            "subtitle": "The ROI of one event pays for the entire year.",
+            "recommended": "Recommended Agency",
+            "revenuePotential": "Revenue Potential",
+            "recommendedUpsell": "Recommended upsell:",
+            "select": "Select"
+        }
+    },
+    "pricingPage": {
+        "title": "Simple & Transparent Pricing",
+        "subtitle": "Choose the best package for your event.",
+        "mostPopular": "MOST POPULAR",
+        "select": "Select:"
+    },
+    "packages": {
+        "currency": "RON",
+        "billingPeriod": "once",
+        "starter": {
+            "name": "Starter",
+            "upsell": "149 RON / credit",
+            "features": {
+                "0": "1 Event Credit",
+                "1": "1,000 Photos / event",
+                "2": "2 Months Storage",
+                "3": "Unlimited Guest Access",
+                "4": "AI Face Search UI",
+                "5": "Standard Support"
+            }
+        },
+        "studio": {
+            "name": "Studio",
+            "upsell": "200 RON / credit",
+            "features": {
+                "0": "4 Event Credits",
+                "1": "2,500 Photos / event",
+                "2": "6 Months Storage",
+                "3": "White Label Options",
+                "4": "AI Face Search UI",
+                "5": "Priority Support"
+            }
+        },
+        "agency": {
+            "name": "Agency",
+            "upsell": "208 RON / credit",
+            "features": {
+                "0": "12 Event Credits",
+                "1": "5,000 Photos / event",
+                "2": "12 Months Storage",
+                "3": "White Label Options",
+                "4": "Dedicated Account Manager",
+                "5": "Premium Support"
+            }
+        }
+    },
+    "dashboard": {
+        "title": "Dashboard",
+        "subtitle": "Manage your events and track your ROI.",
+        "availableCredits": "Available Credits",
+        "eventsLeft": "Events Left",
+        "choosePlan": "Choose Plan",
+        "addCredits": "Add Credits",
+        "createNewEvent": "Create New Event",
+        "noCreditsAlert": "No Event Credits. Please buy a bundle to create an event.",
+        "stats": {
+            "totalPhotos": "Total Photos",
+            "facesIndexed": "Faces Indexed",
+            "guestSearches": "Guest Searches",
+            "potentialRevenue": "Potential Revenue",
+            "estUpsell": "EST. 800 RON / EVENT UPSELL"
+        },
+        "checklist": {
+            "title": "Success Checklist",
+            "createEvent": "Create your first event",
+            "uploadPhotos": "Upload gallery photos",
+            "indexingComplete": "AI Indexing complete",
+            "uploadNow": "Upload Now",
+            "startFirstEvent": "Start First Event"
+        },
+        "noEvents": {
+            "title": "No events yet",
+            "subtitle": "Create your first event to start collecting photos and finding faces."
+        },
+        "eventCard": {
+            "created": "Created",
+            "photos": "Photos",
+            "faces": "Faces"
+        },
+        "createModal": {
+            "title": "Create New Event",
+            "subtitle": "Give your event a name to get started.",
+            "eventName": "Event Name",
+            "placeholder": "e.g., Summer Party 2024",
+            "cancel": "Cancel",
+            "create": "Create Event",
+            "creating": "Creating..."
+        },
+        "messages": {
+            "paymentSuccess": "Payment successful! Your plan has been updated.",
+            "createFailed": "Failed to create event. Please check your credits."
+        }
+    }
+}

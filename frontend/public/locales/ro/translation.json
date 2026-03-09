@@ -1,0 +1,228 @@
+{
+    "navbar": {
+        "howItWorks": "Cum funcționează",
+        "pricing": "Prețuri",
+        "profile": "Profil",
+        "login": "Autentificare",
+        "getStarted": "Începe acum",
+        "dashboard": "Panou",
+        "signOut": "Deconectare"
+    },
+    "billingForm": {
+        "title": "Date Facturare (B2B)",
+        "subtitle": "Toate achizițiile necesită date de facturare conform legii.",
+        "companyName": "Numele Companiei",
+        "cuiCif": "CUI/CIF",
+        "vatPayer": "Plătitor de TVA",
+        "country": "Țara",
+        "romania": "România",
+        "otherCountry": "Altă Țară",
+        "city": "Oraș",
+        "address": "Adresa (Stradă + Număr)",
+        "postalCode": "Cod Poștal",
+        "billingEmail": "Email Facturare",
+        "additionalDetails": "Detalii suplimentare (opțional)",
+        "regCom": "Nr. Reg. Com. (J)",
+        "bank": "Banca",
+        "iban": "IBAN",
+        "requiredFields": "Câmpuri obligatorii",
+        "errors": {
+            "validCui": "✓ CUI Valid",
+            "invalidCui": "CUI Invalid",
+            "invalidEmail": "Format email invalid",
+            "required": "Obligatoriu"
+        }
+    },
+    "checkout": {
+        "backToBilling": "Înapoi la datele de facturare",
+        "paymentMethod": "Metodă de plată",
+        "processing": "Se procesează...",
+        "payNow": "Plătește Acum",
+        "messages": {
+            "success": "Plată reușită!",
+            "processing": "Plata dumneavoastră este în curs de procesare.",
+            "failed": "Plata a eșuat. Vă rugăm să încercați din nou.",
+            "error": "Ceva nu a funcționat bine.",
+            "unexpected": "A apărut o eroare neașteptată."
+        },
+        "title": "Finalizează Achiziția",
+        "steps": {
+            "billing": "Date Facturare",
+            "payment": "Plată"
+        },
+        "errors": {
+            "fillRequired": "Vă rugăm să completați toate câmpurile obligatorii.",
+            "invalidCui": "CUI Invalid. Vă rugăm să verificați numărul introdus.",
+            "allRequired": "Toate câmpurile obligatorii trebuie completate.",
+            "invalidEmail": "Format email invalid.",
+            "creatingPayment": "Eroare la crearea plății"
+        },
+        "preparingPayment": "Se pregătește plata...",
+        "continuePayment": "Continuă spre Plată",
+        "badges": {
+            "secure": "Plată Securizată",
+            "encryption": "CRIPTARE 256-BIT",
+            "hosted": "Găzduit în UE",
+            "region": "REGIUNEA AWS FRANKFURT",
+            "gdpr": "Conform GDPR",
+            "privacy": "CONFIDENȚIALITATE PRIN PROIECTARE"
+        }
+    },
+    "landing": {
+        "audience": {
+            "photographers": "Pentru Fotografi",
+            "guests": "Pentru Invitați"
+        },
+        "photographer": {
+            "badge": "Ieși în evidență față de alți fotografi de nuntă",
+            "title": "Adaugă Căutare Facială AI la",
+            "titleHighlight": "Pachetele Tale de Nuntă.",
+            "description": "Câștigă",
+            "descriptionEarn": "+300–700 RON extra",
+            "descriptionSuffix": "pe eveniment cu o experiență foto premium despre care invitații vor vorbi.",
+            "cta": "Programează un Demo de 3 Min",
+            "ctaSecondary": "Vezi Cum Funcționează"
+        },
+        "guest": {
+            "badge": "Găsește-te în orice galerie instant",
+            "title": "Găsește-ți Fotografiile.",
+            "titleHighlight": "În Secunde, Nu in Ore.",
+            "description": "Fă un selfie rapid și lasă AI-ul să scaneze întreaga galerie a evenimentului pentru a găsi",
+            "descriptionHighlight": "Fiecare Fotografie",
+            "descriptionSuffix": "cu tine.",
+            "cta": "Creează o Galerie Gratuită"
+        },
+        "features": {
+            "noApp": "Fără Aplicație de Descărcat",
+            "noLogin": "Fără Autentificare",
+            "instant": "Rezultate Instant"
+        },
+        "howItWorks": {
+            "title": "Cea Mai Modernă Livrare.",
+            "subtitle": "Treci peste linkurile generice de descărcare. Oferă-le o experiență AI interactivă.",
+            "steps": {
+                "step1": {
+                    "title": "Încarcă Galeria Ta",
+                    "description": "Pur și simplu încarcă fotografiile tale la rezoluție maximă. AI-ul nostru indexează mii de fotografii în câteva minute."
+                },
+                "step2": {
+                    "title": "Invitații Fac un Selfie",
+                    "description": "Fără aplicații de instalat. Invitații scanează un cod QR la locație, fac un selfie, și își văd imediat fotografiile."
+                },
+                "step3": {
+                    "title": "Upsell & Câștigă",
+                    "description": "Include asta ca un add-on premium pentru pachetele tale de nuntă sau folosește-l ca un magnet de lead-uri."
+                }
+            }
+        },
+        "whiteLabel": {
+            "title": "Brandul Tău.",
+            "titleHighlight": "Propulsat de AI.",
+            "description": "Nu îți trimite clienții pe o altă platformă. Păstrează-ți brandul în prim plan. Conturile de agenție primesc capabilități complete white-label.",
+            "list1": "Logoul tău customizat pe fiecare galerie",
+            "list2": "Suport pentru domeniu customizat",
+            "list3": "Clientul nu vede niciodată branding-ul platformei"
+        },
+        "pricingSection": {
+            "title": "Prețuri Simple și Profesionale.",
+            "subtitle": "ROI-ul dintr-un singur eveniment plătește pentru întregul an.",
+            "recommended": "Recomandat pentru Agenții",
+            "revenuePotential": "Potențial de Venit",
+            "recommendedUpsell": "Upsell recomandat:",
+            "select": "Selectează"
+        }
+    },
+    "pricingPage": {
+        "title": "Prețuri Simple și Transparente",
+        "subtitle": "Alege cel mai bun pachet pentru evenimentul tău.",
+        "mostPopular": "CELE MAI POPULARE",
+        "select": "Selectează:"
+    },
+    "packages": {
+        "currency": "RON",
+        "billingPeriod": "o singură dată",
+        "starter": {
+            "name": "Starter",
+            "upsell": "149 RON / credit",
+            "features": {
+                "0": "1 Credit per Eveniment",
+                "1": "1.000 Poze / eveniment",
+                "2": "2 Luni Stocare",
+                "3": "Acces Nelimitat pentru Invitați",
+                "4": "Căutare Facială AI UI",
+                "5": "Suport Standard"
+            }
+        },
+        "studio": {
+            "name": "Studio",
+            "upsell": "200 RON / credit",
+            "features": {
+                "0": "4 Credite de Eveniment",
+                "1": "2.500 Poze / eveniment",
+                "2": "6 Luni Stocare",
+                "3": "Opțiuni White Label",
+                "4": "Căutare Facială AI UI",
+                "5": "Suport Prioritar"
+            }
+        },
+        "agency": {
+            "name": "Agency",
+            "upsell": "208 RON / credit",
+            "features": {
+                "0": "12 Credite de Eveniment",
+                "1": "5.000 Poze / eveniment",
+                "2": "12 Luni Stocare",
+                "3": "Opțiuni White Label",
+                "4": "Manager de Cont Dedicat",
+                "5": "Suport Premium"
+            }
+        }
+    },
+    "dashboard": {
+        "title": "Panou",
+        "subtitle": "Gestionează evenimentele și urmărește ROI.",
+        "availableCredits": "Credite Disponibile",
+        "eventsLeft": "Evenimente Rămase",
+        "choosePlan": "Alege Pachet",
+        "addCredits": "Adaugă Credite",
+        "createNewEvent": "Creează Eveniment Nou",
+        "noCreditsAlert": "Fără Credite de Eveniment. Vă rugăm să cumpărați un pachet pentru a crea un eveniment.",
+        "stats": {
+            "totalPhotos": "Total Fotografii",
+            "facesIndexed": "Fețe Indexate",
+            "guestSearches": "Căutări Invitați",
+            "potentialRevenue": "Venit Potențial",
+            "estUpsell": "EST. 800 RON / EVENIMENT UPSELL"
+        },
+        "checklist": {
+            "title": "Lista de Verificare a Succesului",
+            "createEvent": "Creează primul tău eveniment",
+            "uploadPhotos": "Încarcă fotografiile din galerie",
+            "indexingComplete": "Indexare AI completă",
+            "uploadNow": "Încarcă Acum",
+            "startFirstEvent": "Începe Primul Eveniment"
+        },
+        "noEvents": {
+            "title": "Niciun eveniment încă",
+            "subtitle": "Creează primul tău eveniment pentru a începe să colectezi fotografii și să găsești fețe."
+        },
+        "eventCard": {
+            "created": "Creat pe",
+            "photos": "Poze",
+            "faces": "Fețe"
+        },
+        "createModal": {
+            "title": "Creează Eveniment Nou",
+            "subtitle": "Dă-i un nume evenimentului tău pentru a începe.",
+            "eventName": "Nume Eveniment",
+            "placeholder": "ex., Petrecere de Vară 2024",
+            "cancel": "Anulează",
+            "create": "Creează Eveniment",
+            "creating": "Se creează..."
+        },
+        "messages": {
+            "paymentSuccess": "Plată reușită! Planul tău a fost actualizat.",
+            "createFailed": "Eroare la crearea evenimentului. Te rugăm să îți verifici creditele."
+        }
+    }
+}

@@ -1,0 +1,639 @@
+service: eventfacematch-backend
+useDotenv: true
+
+
+
+
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: eu-central-1
+  stage: ${opt:stage, 'dev'}
+  memorySize: 512
+  timeout: 30
+  tracing:
+    lambda: true
+    apiGateway: true
+  environment:
+    STAGE: ${self:provider.stage}
+    REGION: ${self:provider.region}
+    EVENTS_TABLE: ${self:custom.eventsTable}
+    FACES_TABLE: ${self:custom.facesTable}
+    PHOTOS_TABLE: ${self:custom.photosTable}
+    USERS_TABLE: ${self:custom.usersTable}
+    ORDERS_TABLE: ${self:custom.ordersTable}
+    RAW_PHOTOS_BUCKET: ${self:custom.rawPhotosBucket}
+    FACE_INDEX_BUCKET: ${self:custom.faceIndexBucket}
+    REKOGNITION_COLLECTION_ID: ${self:custom.rekognitionCollectionId}
+    FRONTEND_URL: ${self:custom.frontendUrl}
+    STRIPE_SECRET_KEY: ${env:STRIPE_SECRET_KEY}
+    SYSTEM_STATS_TABLE: ${self:custom.systemStatsTable}
+    AUDIT_LOGS_TABLE: ${self:custom.auditLogsTable}
+    SES_SENDER_EMAIL: ${env:SES_SENDER_EMAIL, 'hello@picsonar.com'}
+    SUPPORT_EMAIL: ${env:SUPPORT_EMAIL, 'support@picsonar.com'}
+    JWT_SECRET: ${env:JWT_SECRET, 'dev-secret-change-in-production'}
+  apiGateway:
+    binaryMediaTypes:
+      - 'multipart/form-data'
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:PutObject
+      Resource:
+        - arn:aws:s3:::${self:custom.rawPhotosBucket}/*
+        - arn:aws:s3:::${self:custom.faceIndexBucket}/*
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource:
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.eventsTable}
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.eventsTable}/index/*
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.facesTable}
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.facesTable}/index/*
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.photosTable}
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.photosTable}/index/*
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.usersTable}
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.usersTable}/index/*
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.ordersTable}
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.ordersTable}/index/*
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.systemStatsTable}
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.auditLogsTable}
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.auditLogsTable}/index/*
+    - Effect: Allow
+      Action:
+        - rekognition:DetectFaces
+        - rekognition:IndexFaces
+        - rekognition:SearchFacesByImage
+        - rekognition:CreateCollection
+        - rekognition:ListFaces
+      Resource: "*"
+    - Effect: Allow
+      Action:
+        - ses:SendEmail
+        - ses:SendRawEmail
+      Resource: "*"
+    - Effect: Allow
+      Action:
+        - sqs:SendMessage
+      Resource:
+        - Fn::GetAtt: [ProcessPhotoDLQ, Arn]
+
+custom:
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: false
+    exclude:
+      - '@aws-sdk/client-dynamodb'
+      - '@aws-sdk/client-s3'
+      - '@aws-sdk/client-rekognition'
+      - '@aws-sdk/util-dynamodb'
+      - '@aws-sdk/lib-storage'
+      - '@aws-sdk/s3-request-presigner'
+  eventsTable: eventfacematch-events-${self:provider.stage}
+  facesTable: eventfacematch-faces-${self:provider.stage}
+  photosTable: eventfacematch-photos-${self:provider.stage}
+  usersTable: eventfacematch-users-${self:provider.stage}
+  ordersTable: eventfacematch-orders-${self:provider.stage}
+  rawPhotosBucket: eventfacematch-raw-photos-${self:provider.stage}-x92k
+  faceIndexBucket: eventfacematch-face-index-${self:provider.stage}-x92k
+  rekognitionCollectionId: eventfacematch-collection-${self:provider.stage}
+  systemStatsTable: eventfacematch-system-stats-${self:provider.stage}
+  auditLogsTable: eventfacematch-audit-logs-${self:provider.stage}
+  frontendUrl: ${env:FRONTEND_URL, 'http://localhost:3000'}
+
+functions:
+  createEvent:
+    handler: functions/createEvent.handler
+    events:
+      - http:
+          path: event
+          method: post
+          cors: true
+
+  getEvents:
+    handler: functions/getEvents.handler
+    events:
+      - http:
+          path: events
+          method: get
+          cors: true
+
+  getEvent:
+    handler: functions/getEvent.handler
+    events:
+      - http:
+          path: event/{eventId}
+          method: get
+          cors: true
+
+  uploadPhoto:
+    handler: functions/uploadPhoto.handler
+    events:
+      - http:
+          path: event/{eventId}/upload
+          method: post
+          cors:
+            origin: '*'
+            headers:
+              - Content-Type
+              - X-Amz-Date
+              - Authorization
+              - X-Api-Key
+              - X-Amz-Security-Token
+            allowCredentials: false
+
+  processPhoto:
+    handler: functions/processPhoto.handler
+    destinations:
+      onFailure:
+        type: sqs
+        arn:
+          Fn::GetAtt: [ProcessPhotoDLQ, Arn]
+    events:
+      - s3:
+          bucket: ${self:custom.rawPhotosBucket}
+          event: s3:ObjectCreated:*
+          existing: true
+
+  getEventPhotos:
+    handler: functions/getEventPhotos.handler
+    events:
+      - http:
+          path: event/{eventId}/photos
+          method: get
+          cors: true
+
+  deletePhoto:
+    handler: functions/deletePhoto.handler
+    events:
+      - http:
+          path: event/{eventId}/photos/{photoId}
+          method: delete
+          cors: true
+
+  deletePhotos:
+    handler: functions/deletePhotos.handler
+    events:
+      - http:
+          path: event/{eventId}/photos/delete-batch
+          method: post
+          cors: true
+
+  getEventFaces:
+    handler: functions/getEventFaces.handler
+    events:
+      - http:
+          path: event/{eventId}/faces
+          method: get
+          cors: true
+
+
+
+  matchFace:
+    handler: functions/matchFace.handler
+    events:
+      - http:
+          path: match-face
+          method: post
+          cors:
+            origin: '*'
+            headers:
+              - Content-Type
+              - X-Amz-Date
+              - Authorization
+              - X-Api-Key
+              - X-Amz-Security-Token
+            allowCredentials: false
+
+  authLogin:
+    handler: functions/auth/login.handler
+    events:
+      - http:
+          path: auth/login
+          method: post
+          cors: true
+
+  authRegister:
+    handler: functions/auth/register.handler
+    events:
+      - http:
+          path: auth/register
+          method: post
+          cors: true
+
+  authMe:
+    handler: functions/auth/me.handler
+    events:
+      - http:
+          path: auth/me
+          method: get
+          cors: true
+
+  authUpdateProfile:
+    handler: functions/auth/updateProfile.handler
+    events:
+      - http:
+          path: auth/profile
+          method: put
+          cors: true
+
+  authForgotPassword:
+    handler: functions/auth/forgotPassword.handler
+    events:
+      - http:
+          path: auth/forgot-password
+          method: post
+          cors: true
+
+  authResetPassword:
+    handler: functions/auth/resetPassword.handler
+    events:
+      - http:
+          path: auth/reset-password
+          method: post
+          cors: true
+
+  createOrder:
+    handler: functions/createOrder.handler
+    events:
+      - http:
+          path: orders
+          method: post
+          cors: true
+
+  getOrders:
+    handler: functions/getOrders.handler
+    events:
+      - http:
+          path: admin/orders
+          method: get
+          cors: true
+
+  createPaymentIntent:
+    handler: functions/payment/createPaymentIntent.handler
+    events:
+      - http:
+          path: payment/create-intent
+          method: post
+          cors: true
+
+  getUserOrders:
+    handler: functions/getUserOrders.handler
+    events:
+      - http:
+          path: orders/me
+          method: get
+          cors: true
+
+  sendContactEmail:
+    handler: functions/sendContactEmail.handler
+    events:
+      - http:
+          path: contact
+          method: post
+          cors: true
+
+  logConsent:
+    handler: functions/logConsent.handler
+    events:
+      - http:
+          path: consent
+          method: post
+          cors: true
+
+  verifyPayment:
+    handler: functions/payment/verifyPayment.handler
+    events:
+      - http:
+          path: payment/verify
+          method: post
+          cors: true
+
+  stripeWebhook:
+    handler: functions/payment/stripeWebhook.handler
+    environment:
+      STRIPE_WEBHOOK_SECRET: ${env:STRIPE_WEBHOOK_SECRET, ''}
+    events:
+      - http:
+          path: payment/webhook
+          method: post
+          cors: false
+
+  getUploadUrl:
+    handler: functions/logo/getUploadUrl.handler
+    events:
+      - http:
+          path: user/logo-upload-url
+          method: get
+          cors: true
+
+  getAdminStats:
+    handler: functions/admin/getAdminStats.handler
+    events:
+      - http:
+          path: admin/stats
+          method: get
+          cors: true
+
+  getAdminUsers:
+    handler: functions/admin/getUsers.handler
+    events:
+      - http:
+          path: admin/users
+          method: get
+          cors: true
+
+  manageUser:
+    handler: functions/admin/manageUser.handler
+    events:
+      - http:
+          path: admin/users/manage
+          method: post
+          cors: true
+
+  getAdminEvents:
+    handler: functions/admin/getEvents.handler
+    events:
+      - http:
+          path: admin/events
+          method: get
+          cors: true
+
+  manageEvent:
+    handler: functions/admin/manageEvent.handler
+    events:
+      - http:
+          path: admin/events/manage
+          method: post
+          cors: true
+
+  getAdminFinance:
+    handler: functions/admin/getFinance.handler
+    events:
+      - http:
+          path: admin/finance
+          method: get
+          cors: true
+
+  getSystemLogs:
+    handler: functions/admin/getSystemLogs.handler
+    events:
+      - http:
+          path: admin/logs
+          method: get
+          cors: true
+
+  getAdminSettings:
+    handler: functions/admin/getSettings.handler
+    events:
+      - http:
+          path: admin/settings
+          method: get
+          cors: true
+
+  updateAdminSettings:
+    handler: functions/admin/updateSettings.handler
+    events:
+      - http:
+          path: admin/settings
+          method: post
+          cors: true
+
+
+
+
+
+
+
+plugins:
+  - serverless-esbuild
+  - serverless-offline
+  - serverless-dotenv-plugin
+
+resources:
+  Resources:
+    EventsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.eventsTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: eventId
+            AttributeType: S
+          - AttributeName: userId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: eventId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: userId-index
+            KeySchema:
+              - AttributeName: userId
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+
+    FacesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.facesTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: faceId
+            AttributeType: S
+          - AttributeName: eventId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: faceId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: eventId-index
+            KeySchema:
+              - AttributeName: eventId
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+
+    PhotosTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.photosTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: photoId
+            AttributeType: S
+          - AttributeName: eventId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: photoId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: eventId-index
+            KeySchema:
+              - AttributeName: eventId
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+    
+    UsersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.usersTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+          - AttributeName: email
+            AttributeType: S
+          - AttributeName: resetToken
+            AttributeType: S
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: email-index
+            KeySchema:
+              - AttributeName: email
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+          - IndexName: resetToken-index
+            KeySchema:
+              - AttributeName: resetToken
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+
+    OrdersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.ordersTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: orderId
+            AttributeType: S
+          - AttributeName: userId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: orderId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: userId-index
+            KeySchema:
+              - AttributeName: userId
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+
+    RawPhotosBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.rawPhotosBucket}
+        LifecycleConfiguration:
+          Rules:
+            - Id: DeleteOldPhotos
+              Status: Enabled
+              ExpirationInDays: 180
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+
+    FaceIndexBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.faceIndexBucket}
+        LifecycleConfiguration:
+          Rules:
+            - Id: DeleteOldFaces
+              Status: Enabled
+              ExpirationInDays: 180
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+
+    GatewayResponseDefault4XX:
+      Type: 'AWS::ApiGateway::GatewayResponse'
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
+        ResponseType: DEFAULT_4XX
+        RestApiId:
+          Ref: 'ApiGatewayRestApi'
+          
+    GatewayResponseDefault5XX:
+      Type: 'AWS::ApiGateway::GatewayResponse'
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
+        ResponseType: DEFAULT_5XX
+        RestApiId:
+          Ref: 'ApiGatewayRestApi'
+
+    SystemStatsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.systemStatsTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: statsId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: statsId
+            KeyType: HASH
+
+    AuditLogsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.auditLogsTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: logId
+            AttributeType: S
+          - AttributeName: timestamp
+            AttributeType: N
+        KeySchema:
+          - AttributeName: logId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: timestamp-index
+            KeySchema:
+              - AttributeName: timestamp
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+
+    # SQS Dead Letter Queue for failed photo processing async events
+    ProcessPhotoDLQ:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: eventfacematch-process-dlq-${self:provider.stage}
+        MessageRetentionPeriod: 1209600 # Keep failed messages for 14 days
+
+  Outputs:
+    ApiGatewayRestApiId:
+      Value:
+        Ref: ApiGatewayRestApi
+      Export:
+        Name: ${self:provider.stage}-ApiGatewayRestApiId
+
+    ApiGatewayRestApiRootResourceId:
+      Value:
+        Fn::GetAtt:
+          - ApiGatewayRestApi
+          - RootResourceId
+
+
