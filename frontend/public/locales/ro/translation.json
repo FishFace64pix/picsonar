@@ -59,6 +59,9 @@
         },
         "preparingPayment": "Se pregătește plata...",
         "continuePayment": "Continuă spre Plată",
+        "confirmAndPay": "Confirmă și Plătește",
+        "selectedPackage": "PACHET SELECTAT",
+        "continueToStripe": "Continuă spre Stripe Checkout",
         "badges": {
             "secure": "Plată Securizată",
             "encryption": "CRIPTARE 256-BIT",

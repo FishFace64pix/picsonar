@@ -59,6 +59,9 @@
         },
         "preparingPayment": "Preparing payment...",
         "continuePayment": "Continue to Payment",
+        "confirmAndPay": "Confirm & Pay",
+        "selectedPackage": "SELECTED PACKAGE",
+        "continueToStripe": "Continue to Stripe Checkout",
         "badges": {
             "secure": "Secure Payment",
             "encryption": "256-BIT ENCRYPTION",

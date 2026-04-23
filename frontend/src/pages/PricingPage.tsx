@@ -49,7 +49,7 @@ export default function PricingPage() {
                             </ul>
 
                             <Link
-                                to={`/checkout?package=${pkg.id}`}
+                                to={`/checkout?package=${pkg.id}&type=package`}
                                 className={`w-full text-center py-3 rounded-lg font-bold transition-all ${pkg.popular
                                     ? 'bg-primary-600 hover:bg-primary-500 text-white shadow-lg hover:shadow-primary-500/30'
                                     : 'bg-white/10 hover:bg-white/20 text-white'
