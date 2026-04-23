@@ -24,7 +24,6 @@ const API_BASE_URL =
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
-  withCredentials: true,
 })
 
 apiClient.interceptors.request.use((config) => {
@@ -49,7 +48,6 @@ async function attemptRefresh(): Promise<string | null> {
       const resp = await axios.post(
         `${API_BASE_URL}/auth/refresh`,
         { refreshToken: rt },
-        { withCredentials: true },
       )
       const { token, refreshToken: newRefresh } = resp.data ?? {}
       if (!token) return null
