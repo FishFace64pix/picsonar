@@ -117,9 +117,9 @@ git filter-repo --invert-paths \
 ```bash
 # Put each known leaked string on its own line, then:
 cat > /tmp/replacements.txt <<'EOF'
-sk_live_XXXXXXXXXXXXXXXXXXXXXXXX==>REMOVED_STRIPE_KEY
-whsec_YYYYYYYYYYYYYYYYYYYYYYYYY==>REMOVED_WEBHOOK_SECRET
-SG.ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ==>REMOVED_SENDGRID_KEY
+<YOUR_STRIPE_SECRET_KEY>==>REMOVED_STRIPE_KEY
+<YOUR_WEBHOOK_SECRET>==>REMOVED_WEBHOOK_SECRET
+<YOUR_SENDGRID_KEY>==>REMOVED_SENDGRID_KEY
 EOF
 
 git filter-repo --replace-text /tmp/replacements.txt
