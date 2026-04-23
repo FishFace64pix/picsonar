@@ -67,7 +67,7 @@ export const eventsApi = {
       return [...mockStore.events]
     }
     const response = await apiClient.get('/events')
-    return response.data
+    return response.data.events || response.data
   },
 
   getEvent: async (eventId: string): Promise<Event> => {
@@ -125,7 +125,7 @@ export const eventsApi = {
           faceId,
           eventId,
           rekognitionFaceId: uuidv4(),
-          samplePhotoUrl: newPhoto.s3Url,
+          samplePhotoUrl: newPhoto.s3Url ?? '',
           associatedPhotos: [newPhoto.photoId]
         }
 

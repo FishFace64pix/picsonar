@@ -1,6 +1,9 @@
 service: eventfacematch-backend
 useDotenv: true
 
+build:
+  esbuild: false
+
 
 
 
@@ -10,8 +13,15 @@ provider:
   runtime: nodejs20.x
   region: eu-central-1
   stage: ${opt:stage, 'dev'}
+  deploymentBucket:
+    name: eventfacematch-deployments-851188704788-${self:provider.stage}
+    blockPublicAccess: true
+    serverSideEncryption: AES256
   memorySize: 512
   timeout: 30
+  # Cap CloudWatch log retention at 30 days for dev/staging, 90 for prod.
+  # Default is "never expire" — which quietly costs money forever.
+  logRetentionInDays: ${self:custom.logRetentionDays.${self:provider.stage}, 30}
   tracing:
     lambda: true
     apiGateway: true
@@ -23,16 +33,28 @@ provider:
     PHOTOS_TABLE: ${self:custom.photosTable}
     USERS_TABLE: ${self:custom.usersTable}
     ORDERS_TABLE: ${self:custom.ordersTable}
+    BILLING_RECORDS_TABLE: ${self:custom.billingRecordsTable}
+    REVOKED_TOKENS_TABLE: ${self:custom.revokedTokensTable}
     RAW_PHOTOS_BUCKET: ${self:custom.rawPhotosBucket}
     FACE_INDEX_BUCKET: ${self:custom.faceIndexBucket}
     REKOGNITION_COLLECTION_ID: ${self:custom.rekognitionCollectionId}
     FRONTEND_URL: ${self:custom.frontendUrl}
-    STRIPE_SECRET_KEY: ${env:STRIPE_SECRET_KEY}
-    SYSTEM_STATS_TABLE: ${self:custom.systemStatsTable}
-    AUDIT_LOGS_TABLE: ${self:custom.auditLogsTable}
     SES_SENDER_EMAIL: ${env:SES_SENDER_EMAIL, 'hello@picsonar.com'}
     SUPPORT_EMAIL: ${env:SUPPORT_EMAIL, 'support@picsonar.com'}
-    JWT_SECRET: ${env:JWT_SECRET, 'dev-secret-change-in-production'}
+    # Auth + payment secrets have NO defaults — a missing env is a deploy-time
+    # error (loud) rather than silently signing with a guessable string. The
+    # zod validator in src/config/env.ts will also fail-fast at cold start.
+    JWT_SECRET: ${env:JWT_SECRET}
+    JWT_REFRESH_SECRET: ${env:JWT_REFRESH_SECRET, ''}
+    SMTP_HOST: ${env:SMTP_HOST, 'smtp-relay.brevo.com'}
+    SMTP_PORT: ${env:SMTP_PORT, '587'}
+    SMTP_USER: ${env:BREVO_SMTP_USER}
+    SMTP_PASS: ${env:BREVO_SMTP_PASS}
+    EMAIL_FROM: ${env:EMAIL_FROM, 'hello@picsonar.com'}
+    EMAIL_FROM_NAME: ${env:EMAIL_FROM_NAME, 'PicSonar'}
+    STRIPE_SECRET_KEY: ${env:STRIPE_SECRET_KEY}
+    STRIPE_WEBHOOK_SECRET: ${env:STRIPE_WEBHOOK_SECRET}
+    INVOICES_BUCKET: ${self:custom.invoicesBucket}
   apiGateway:
     binaryMediaTypes:
       - 'multipart/form-data'
@@ -44,6 +66,7 @@ provider:
       Resource:
         - arn:aws:s3:::${self:custom.rawPhotosBucket}/*
         - arn:aws:s3:::${self:custom.faceIndexBucket}/*
+        - arn:aws:s3:::${self:custom.invoicesBucket}/*
     - Effect: Allow
       Action:
         - dynamodb:Query
@@ -63,6 +86,9 @@ provider:
         - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.usersTable}/index/*
         - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.ordersTable}
         - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.ordersTable}/index/*
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.billingRecordsTable}
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.billingRecordsTable}/index/*
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.revokedTokensTable}
         - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.systemStatsTable}
         - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.auditLogsTable}
         - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.auditLogsTable}/index/*
@@ -73,11 +99,7 @@ provider:
         - rekognition:SearchFacesByImage
         - rekognition:CreateCollection
         - rekognition:ListFaces
-      Resource: "*"
-    - Effect: Allow
-      Action:
-        - ses:SendEmail
-        - ses:SendRawEmail
+        - rekognition:DeleteFaces
       Resource: "*"
     - Effect: Allow
       Action:
@@ -102,12 +124,24 @@ custom:
   photosTable: eventfacematch-photos-${self:provider.stage}
   usersTable: eventfacematch-users-${self:provider.stage}
   ordersTable: eventfacematch-orders-${self:provider.stage}
+  billingRecordsTable: eventfacematch-billing-records-${self:provider.stage}
   rawPhotosBucket: eventfacematch-raw-photos-${self:provider.stage}-x92k
   faceIndexBucket: eventfacematch-face-index-${self:provider.stage}-x92k
   rekognitionCollectionId: eventfacematch-collection-${self:provider.stage}
   systemStatsTable: eventfacematch-system-stats-${self:provider.stage}
   auditLogsTable: eventfacematch-audit-logs-${self:provider.stage}
   frontendUrl: ${env:FRONTEND_URL, 'http://localhost:3000'}
+  invoicesBucket: eventfacematch-invoices-${self:provider.stage}-x92k
+  revokedTokensTable: eventfacematch-revoked-tokens-${self:provider.stage}
+  # CloudWatch log retention per stage. Prod keeps 90 days for incident
+  # forensics; lower stages expire sooner to keep CW log fees negligible.
+  logRetentionDays:
+    dev: 14
+    staging: 30
+    prod: 90
+  # Alerts go to an SNS topic — email subscription is managed outside IaC
+  # (Secrets Manager doc), so we don't check an email into the repo.
+  alarmsNamespace: PicSonar/${self:provider.stage}
 
 functions:
   createEvent:
@@ -261,6 +295,54 @@ functions:
           method: post
           cors: true
 
+  authLogout:
+    handler: functions/auth/logout.handler
+    events:
+      - http:
+          path: auth/logout
+          method: post
+          cors: true
+
+  authRefresh:
+    handler: functions/auth/refresh.handler
+    events:
+      - http:
+          path: auth/refresh
+          method: post
+          cors: true
+
+  authVerifyEmail:
+    handler: functions/auth/verifyEmail.handler
+    events:
+      - http:
+          path: auth/verify-email
+          method: post
+          cors: true
+
+  authResendVerification:
+    handler: functions/auth/resendVerification.handler
+    events:
+      - http:
+          path: auth/resend-verification
+          method: post
+          cors: true
+
+  authDeleteAccount:
+    handler: functions/auth/deleteAccount.handler
+    events:
+      - http:
+          path: auth/delete-account
+          method: post
+          cors: true
+
+  authExportData:
+    handler: functions/auth/exportData.handler
+    events:
+      - http:
+          path: auth/export-data
+          method: get
+          cors: true
+
   createOrder:
     handler: functions/createOrder.handler
     events:
@@ -282,6 +364,30 @@ functions:
     events:
       - http:
           path: payment/create-intent
+          method: post
+          cors: true
+
+  createCheckoutSession:
+    handler: functions/payment/createCheckoutSession.handler
+    events:
+      - http:
+          path: payment/checkout-session
+          method: post
+          cors: true
+
+  exportInvoices:
+    handler: functions/payment/exportInvoices.handler
+    events:
+      - http:
+          path: exports/invoices
+          method: get
+          cors: true
+
+  createPortalSession:
+    handler: functions/payment/createPortalSession.handler
+    events:
+      - http:
+          path: billing/portal-session
           method: post
           cors: true
 
@@ -319,8 +425,6 @@ functions:
 
   stripeWebhook:
     handler: functions/payment/stripeWebhook.handler
-    environment:
-      STRIPE_WEBHOOK_SECRET: ${env:STRIPE_WEBHOOK_SECRET, ''}
     events:
       - http:
           path: payment/webhook
@@ -425,6 +529,10 @@ resources:
       Properties:
         TableName: ${self:custom.eventsTable}
         BillingMode: PAY_PER_REQUEST
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+        SSESpecification:
+          SSEEnabled: true
         AttributeDefinitions:
           - AttributeName: eventId
             AttributeType: S
@@ -446,6 +554,10 @@ resources:
       Properties:
         TableName: ${self:custom.facesTable}
         BillingMode: PAY_PER_REQUEST
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+        SSESpecification:
+          SSEEnabled: true
         AttributeDefinitions:
           - AttributeName: faceId
             AttributeType: S
@@ -467,6 +579,10 @@ resources:
       Properties:
         TableName: ${self:custom.photosTable}
         BillingMode: PAY_PER_REQUEST
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+        SSESpecification:
+          SSEEnabled: true
         AttributeDefinitions:
           - AttributeName: photoId
             AttributeType: S
@@ -488,6 +604,10 @@ resources:
       Properties:
         TableName: ${self:custom.usersTable}
         BillingMode: PAY_PER_REQUEST
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+        SSESpecification:
+          SSEEnabled: true
         AttributeDefinitions:
           - AttributeName: userId
             AttributeType: S
@@ -517,6 +637,10 @@ resources:
       Properties:
         TableName: ${self:custom.ordersTable}
         BillingMode: PAY_PER_REQUEST
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+        SSESpecification:
+          SSEEnabled: true
         AttributeDefinitions:
           - AttributeName: orderId
             AttributeType: S
@@ -530,6 +654,35 @@ resources:
             KeySchema:
               - AttributeName: userId
                 KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+
+    BillingRecordsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.billingRecordsTable}
+        BillingMode: PAY_PER_REQUEST
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+        SSESpecification:
+          SSEEnabled: true
+        AttributeDefinitions:
+          - AttributeName: stripeSessionId
+            AttributeType: S
+          - AttributeName: dateYearMonth
+            AttributeType: S
+          - AttributeName: createdAt
+            AttributeType: N
+        KeySchema:
+          - AttributeName: stripeSessionId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: dateYearMonth-index
+            KeySchema:
+              - AttributeName: dateYearMonth
+                KeyType: HASH
+              - AttributeName: createdAt
+                KeyType: RANGE
             Projection:
               ProjectionType: ALL
 
@@ -573,7 +726,7 @@ resources:
         RestApiId:
           Ref: 'ApiGatewayRestApi'
           
-    GatewayResponseDefault5XX:
+    GatewayResponseDefaultDefault5XX:
       Type: 'AWS::ApiGateway::GatewayResponse'
       Properties:
         ResponseParameters:
@@ -583,11 +736,36 @@ resources:
         RestApiId:
           Ref: 'ApiGatewayRestApi'
 
+    InvoicesBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.invoicesBucket}
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+        # Romanian fiscal law (Codul Fiscal art. 25(4)(d) + Codul de Procedură
+        # Fiscală) requires 5-year invoice retention. We move to GLACIER after
+        # 90 days (cheap), then expire after 5 years + 30-day grace.
+        LifecycleConfiguration:
+          Rules:
+            - Id: InvoicesArchive
+              Status: Enabled
+              Transitions:
+                - StorageClass: GLACIER
+                  TransitionInDays: 90
+              ExpirationInDays: 1855  # ~5 years + grace
+
     SystemStatsTable:
       Type: AWS::DynamoDB::Table
       Properties:
         TableName: ${self:custom.systemStatsTable}
         BillingMode: PAY_PER_REQUEST
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+        SSESpecification:
+          SSEEnabled: true
         AttributeDefinitions:
           - AttributeName: statsId
             AttributeType: S
@@ -600,6 +778,10 @@ resources:
       Properties:
         TableName: ${self:custom.auditLogsTable}
         BillingMode: PAY_PER_REQUEST
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+        SSESpecification:
+          SSEEnabled: true
         AttributeDefinitions:
           - AttributeName: logId
             AttributeType: S
@@ -616,12 +798,213 @@ resources:
             Projection:
               ProjectionType: ALL
 
+    ApiRateLimitWaf:
+      Type: AWS::WAFv2::WebACL
+      Properties:
+        Name: eventfacematch-waf-${self:provider.stage}
+        Scope: REGIONAL
+        DefaultAction:
+          Allow: {}
+        VisibilityConfig:
+          SampledRequestsEnabled: true
+          CloudWatchMetricsEnabled: true
+          MetricName: eventfacematch-waf-metrics
+        Rules:
+          - Name: RateLimitMatchFace
+            Priority: 1
+            Action:
+              Block: {}
+            Statement:
+              RateBasedStatement:
+                Limit: 100
+                AggregateKeyType: IP
+            VisibilityConfig:
+              SampledRequestsEnabled: true
+              CloudWatchMetricsEnabled: true
+              MetricName: RateLimitMatchFaceMetric
+          - Name: RateLimitLogin
+            Priority: 2
+            Action:
+              Block: {}
+            Statement:
+              RateBasedStatement:
+                Limit: 100
+                AggregateKeyType: IP
+            VisibilityConfig:
+              SampledRequestsEnabled: true
+              CloudWatchMetricsEnabled: true
+              MetricName: RateLimitLoginMetric
+
+    # ApiWafAssociation is applied post-deploy via scripts/associateWaf.ts
+    # because CloudFormation cannot guarantee the API Gateway stage exists
+    # before the association is attempted during a fresh stack creation.
+
     # SQS Dead Letter Queue for failed photo processing async events
     ProcessPhotoDLQ:
       Type: AWS::SQS::Queue
       Properties:
         QueueName: eventfacematch-process-dlq-${self:provider.stage}
         MessageRetentionPeriod: 1209600 # Keep failed messages for 14 days
+
+    # Note: the Rekognition collection is provisioned via the post-deploy
+    # script `backend/scripts/ensureRekognitionCollection.ts` because
+    # CloudFormation has no native `AWS::Rekognition::Collection` type and
+    # a CFN custom resource adds fragility (custom resource Lambda failure
+    # blocks every future stack update). The script is idempotent and runs
+    # after every `serverless deploy` in CI.
+
+    # --- Alerting infra ----------------------------------------------
+    # Single topic everyone subscribes to. PagerDuty / Opsgenie pick it up
+    # via email-to-ticket or HTTPS subscription, whichever the team prefers.
+    AlarmTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: picsonar-alarms-${self:provider.stage}
+        DisplayName: PicSonar Alarms (${self:provider.stage})
+
+    # API Gateway 5xx rate — >5 errors in 5 min is "prod is on fire".
+    Api5xxAlarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: picsonar-${self:provider.stage}-api-5xx
+        AlarmDescription: "API Gateway returning 5xx responses"
+        MetricName: 5XXError
+        Namespace: AWS/ApiGateway
+        Statistic: Sum
+        Period: 300
+        EvaluationPeriods: 1
+        Threshold: 5
+        ComparisonOperator: GreaterThanOrEqualToThreshold
+        TreatMissingData: notBreaching
+        Dimensions:
+          - Name: ApiName
+            Value: ${self:provider.stage}-${self:service}
+        AlarmActions:
+          - Ref: AlarmTopic
+        OKActions:
+          - Ref: AlarmTopic
+
+    # API Gateway p99 latency — slow responses for paying users hurt retention.
+    ApiLatencyAlarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: picsonar-${self:provider.stage}-api-latency-p99
+        AlarmDescription: "API Gateway p99 latency over 5s sustained 10min"
+        MetricName: Latency
+        Namespace: AWS/ApiGateway
+        ExtendedStatistic: p99
+        Period: 300
+        EvaluationPeriods: 2
+        Threshold: 5000
+        ComparisonOperator: GreaterThanThreshold
+        TreatMissingData: notBreaching
+        Dimensions:
+          - Name: ApiName
+            Value: ${self:provider.stage}-${self:service}
+        AlarmActions:
+          - Ref: AlarmTopic
+
+    # DLQ depth — anything in the DLQ means photo processing is broken.
+    DlqDepthAlarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: picsonar-${self:provider.stage}-dlq-depth
+        AlarmDescription: "Photos failed to process and landed in DLQ"
+        MetricName: ApproximateNumberOfMessagesVisible
+        Namespace: AWS/SQS
+        Statistic: Maximum
+        Period: 300
+        EvaluationPeriods: 1
+        Threshold: 1
+        ComparisonOperator: GreaterThanOrEqualToThreshold
+        TreatMissingData: notBreaching
+        Dimensions:
+          - Name: QueueName
+            Value:
+              Fn::GetAtt: [ProcessPhotoDLQ, QueueName]
+        AlarmActions:
+          - Ref: AlarmTopic
+
+    # DynamoDB throttles — PAY_PER_REQUEST shouldn't throttle, but when it
+    # does it's always at the worst time. Alarm on any throttle, any table.
+    DynamoThrottleAlarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: picsonar-${self:provider.stage}-dynamo-throttle
+        AlarmDescription: "One or more DynamoDB tables throttled a request"
+        MetricName: ThrottledRequests
+        Namespace: AWS/DynamoDB
+        Statistic: Sum
+        Period: 300
+        EvaluationPeriods: 1
+        Threshold: 1
+        ComparisonOperator: GreaterThanOrEqualToThreshold
+        TreatMissingData: notBreaching
+        AlarmActions:
+          - Ref: AlarmTopic
+
+    # Composite Lambda-errors alarm — aggregate over the whole service.
+    # A handful of expected 400s don't trip this; unhandled exceptions do.
+    LambdaErrorsAlarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: picsonar-${self:provider.stage}-lambda-errors
+        AlarmDescription: "Service-wide unhandled Lambda errors"
+        MetricName: Errors
+        Namespace: AWS/Lambda
+        Statistic: Sum
+        Period: 300
+        EvaluationPeriods: 1
+        Threshold: 10
+        ComparisonOperator: GreaterThanOrEqualToThreshold
+        TreatMissingData: notBreaching
+        AlarmActions:
+          - Ref: AlarmTopic
+
+    # --- Refresh-token revocation table -------------------------------
+    # Rows carry a `ttl` attribute equal to the refresh token's exp so
+    # DynamoDB auto-scavenges them; we never manually clean up. Keyed by
+    # sha256(jti) so an exfiltrated table can't be correlated to live
+    # tokens.
+    RevokedTokensTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.revokedTokensTable}
+        BillingMode: PAY_PER_REQUEST
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: false
+        SSESpecification:
+          SSEEnabled: true
+        AttributeDefinitions:
+          - AttributeName: pk
+            AttributeType: S
+        KeySchema:
+          - AttributeName: pk
+            KeyType: HASH
+        TimeToLiveSpecification:
+          AttributeName: ttl
+          Enabled: true
+
+    # --- Stripe webhook idempotency + rate limit table ----------------
+    # Sliding-window rate limiter stores counts here; TTL auto-prunes.
+    RateLimitsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: eventfacematch-ratelimits-${self:provider.stage}
+        BillingMode: PAY_PER_REQUEST
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: false
+        SSESpecification:
+          SSEEnabled: true
+        AttributeDefinitions:
+          - AttributeName: pk
+            AttributeType: S
+        KeySchema:
+          - AttributeName: pk
+            KeyType: HASH
+        TimeToLiveSpecification:
+          AttributeName: ttl
+          Enabled: true
 
   Outputs:
     ApiGatewayRestApiId:

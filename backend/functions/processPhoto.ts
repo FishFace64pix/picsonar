@@ -26,6 +26,14 @@ export const handler = async (event: S3Event): Promise<void> => {
         continue
       }
 
+      // Guard against memory exhaustion: reject files larger than 20 MB before
+      // loading them into a Jimp buffer inside the Lambda container.
+      const MAX_PHOTO_BYTES = 20 * 1024 * 1024
+      if (record.s3.object.size > MAX_PHOTO_BYTES) {
+        console.error(`Photo too large to process (${record.s3.object.size} bytes), skipping: ${key}`)
+        continue
+      }
+
       // Extract eventId from key (format: eventId/photoId.jpg)
       const parts = key.split('/')
       if (parts.length < 2) {

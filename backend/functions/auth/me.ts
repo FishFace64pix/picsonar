@@ -1,46 +1,44 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
-import { successResponse, errorResponse } from '../../src/utils/response'
+/**
+ * GET /auth/me
+ *
+ * Returns the authenticated user's profile (sans password / reset tokens).
+ * Signs the company logo S3 key if present.
+ */
+import type { APIGatewayProxyEvent } from 'aws-lambda'
+
+import { getEnv } from '../../src/config/env'
+import { withHandler } from '../../src/middleware/handler'
+import { requireAuth } from '../../src/middleware/auth'
 import { getItem } from '../../src/utils/dynamodb'
 import { getSignedUrlForDownload } from '../../src/utils/s3'
-import { verifyAuthHeader } from '../../src/utils/jwt'
+import { NotFoundError } from '../../src/utils/errors'
+import { successResponse } from '../../src/utils/response'
 
-const USERS_TABLE = process.env.USERS_TABLE || ''
-const RAW_PHOTOS_BUCKET = process.env.RAW_PHOTOS_BUCKET || ''
+export const handler = withHandler(async (event: APIGatewayProxyEvent, ctx) => {
+  const jwt = requireAuth(event)
+  const env = getEnv()
 
-export const handler = async (
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> => {
-  try {
-    const authHeader = event.headers.Authorization || event.headers.authorization
+  const user = await getItem(env.USERS_TABLE, { userId: jwt.userId })
+  if (!user) throw new NotFoundError('User not found')
 
-    const payload = verifyAuthHeader(authHeader)
-    if (!payload) {
-      return errorResponse('Invalid or expired token', 401)
+  const {
+    password: _pw,
+    resetToken: _rt,
+    resetTokenExpiry: _rte,
+    ...safeUser
+  } = user
+
+  if (safeUser.companyDetails?.logoKey) {
+    try {
+      safeUser.companyDetails.logoUrl = await getSignedUrlForDownload(
+        env.RAW_PHOTOS_BUCKET,
+        safeUser.companyDetails.logoKey,
+        env.SIGNED_URL_TTL_SECONDS,
+      )
+    } catch (e) {
+      console.warn('[me] logo sign failed', e)
     }
-
-    const { userId } = payload
-
-    const user = await getItem(USERS_TABLE, { userId })
-
-    if (!user) {
-      return errorResponse('User not found', 404)
-    }
-
-    const { password: _, ...userWithoutPassword } = user
-
-    // Sign logo URL if present (White Label)
-    if (userWithoutPassword.companyDetails?.logoKey) {
-      try {
-        const signedUrl = await getSignedUrlForDownload(RAW_PHOTOS_BUCKET, userWithoutPassword.companyDetails.logoKey, 3600)
-        userWithoutPassword.companyDetails.logoUrl = signedUrl
-      } catch (e) {
-        console.error('Failed to sign logo URL:', e)
-      }
-    }
-
-    return successResponse(userWithoutPassword)
-  } catch (error: any) {
-    console.error('Error getting user:', error)
-    return errorResponse(error.message || 'Failed to get user', 500)
   }
-}
+
+  return successResponse(safeUser, 200, { requestOrigin: ctx.requestOrigin })
+})

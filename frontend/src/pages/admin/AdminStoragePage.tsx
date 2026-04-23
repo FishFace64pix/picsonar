@@ -27,6 +27,14 @@ export default function AdminStoragePage() {
     // Top 5 Events by Storage
     const topEvents = [...events].sort((a, b) => b.storageMB - a.storageMB).slice(0, 5)
 
+    if (loading) {
+        return (
+            <AdminLayout>
+                <div className="p-8 text-gray-400">Loading storage data...</div>
+            </AdminLayout>
+        )
+    }
+
     return (
         <AdminLayout>
             <h1 className="text-3xl font-bold text-white mb-2">Storage Management</h1>

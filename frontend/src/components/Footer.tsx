@@ -40,7 +40,42 @@ const Footer: React.FC = () => {
                             <li><Link to="/terms" className="hover:text-primary-400 transition-colors">Terms of Service</Link></li>
                             <li><Link to="/dpa" className="hover:text-primary-400 transition-colors">Data Processing Agreement (DPA)</Link></li>
                             <li><Link to="/subprocessors" className="hover:text-primary-400 transition-colors">Subprocessors</Link></li>
+                            <li><Link to="/consumer-rights" className="hover:text-primary-400 transition-colors">Consumer Rights (OUG 34/2014)</Link></li>
                         </ul>
+                    </div>
+                </div>
+
+                {/*
+                  Romanian consumer-protection disclosures.
+                  ANPC link + ODR platform link are legally required on the
+                  public footer of any B2C e-commerce site operating in RO.
+                  Do not remove without legal review.
+                */}
+                <div className="border-t border-white/5 pt-6 pb-4">
+                    <div className="flex flex-col md:flex-row gap-4 md:gap-8 items-start md:items-center text-[11px] text-gray-500">
+                        <div className="flex items-center gap-2">
+                            <span className="uppercase tracking-widest font-bold text-gray-400">Protecția consumatorului:</span>
+                            <a
+                                href="https://anpc.ro"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="underline hover:text-primary-400"
+                            >
+                                ANPC
+                            </a>
+                            <span className="text-gray-600">•</span>
+                            <a
+                                href="https://ec.europa.eu/consumers/odr/main/?event=main.home.show&amp;lng=RO"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="underline hover:text-primary-400"
+                            >
+                                Soluționarea online a litigiilor (SOL/ODR)
+                            </a>
+                        </div>
+                        <div className="text-gray-600">
+                            Operator date: PicSonar SRL • CUI: RO&lt;TODO&gt; • J&lt;TODO&gt;
+                        </div>
                     </div>
                 </div>
 

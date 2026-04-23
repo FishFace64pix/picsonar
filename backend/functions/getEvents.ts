@@ -1,42 +1,45 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
-import { queryItems } from '../src/utils/dynamodb'
-import { successResponse, errorResponse } from '../src/utils/response'
+/**
+ * GET /events
+ *
+ * Lists events owned by the authenticated user. Paginated.
+ *
+ * The previous implementation parsed `userId` out of the raw bearer token
+ * with `token.split(':')` — a forgeable pattern that allowed anyone to list
+ * any user's events by sending `Authorization: Bearer <targetUserId>:whatever`.
+ */
+import type { APIGatewayProxyEvent } from 'aws-lambda'
+import { z } from 'zod'
 
-const EVENTS_TABLE = process.env.EVENTS_TABLE!
+import { getEnv } from '../src/config/env'
+import { withHandler } from '../src/middleware/handler'
+import { requireAuth } from '../src/middleware/auth'
+import { parseQuery } from '../src/middleware/validate'
+import { queryItemsPage } from '../src/utils/dynamodb'
+import { successResponse } from '../src/utils/response'
 
-export const handler = async (
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> => {
-  try {
-    const authHeader = event.headers.Authorization || event.headers.authorization
-    if (!authHeader) {
-      return errorResponse('Authorization header is required', 401)
-    }
+const QuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  cursor: z.string().max(2048).optional(),
+})
 
-    const token = authHeader.replace('Bearer ', '')
-    const [userId] = token.split(':')
+export const handler = withHandler(async (event: APIGatewayProxyEvent, ctx) => {
+  const jwt = requireAuth(event)
+  const { limit, cursor } = parseQuery(event, QuerySchema)
+  const env = getEnv()
 
-    if (!userId) {
-      return errorResponse('Invalid token', 401)
-    }
+  const { items, nextCursor } = await queryItemsPage({
+    tableName: env.EVENTS_TABLE,
+    indexName: 'userId-index',
+    keyConditionExpression: 'userId = :userId',
+    expressionAttributeValues: { ':userId': jwt.userId },
+    limit,
+    cursor,
+    scanIndexForward: false, // newest first
+  })
 
-    // Query using GSI
-    const userEvents = await queryItems(
-      EVENTS_TABLE,
-      'userId = :userId',
-      { ':userId': userId },
-      'userId-index'
-    )
-
-    // Sort by createdAt descending
-    userEvents.sort((a, b) =>
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )
-
-    return successResponse(userEvents)
-  } catch (error: any) {
-    console.error('Error getting events:', error)
-    return errorResponse(error.message || 'Failed to get events', 500)
-  }
-}
-
+  return successResponse(
+    { events: items, nextCursor },
+    200,
+    { requestOrigin: ctx.requestOrigin },
+  )
+})

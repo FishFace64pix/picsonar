@@ -1,184 +1,210 @@
-import { useState, useEffect, FormEvent } from 'react'
-import { loadStripe } from '@stripe/stripe-js'
-import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
+import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
 import { apiClient } from '../api/client'
 import { BillingDataForm, BillingFormData } from '../components/BillingDataForm'
+import { loadStripe } from '@stripe/stripe-js'
+import {
+  Elements,
+  CardElement,
+  useStripe,
+  useElements,
+} from '@stripe/react-stripe-js'
 
-// Replace with your publishable key
-const stripePromise = loadStripe('pk_test_51ScG2hLa4hy2djuhX3PDtOC7FexiFJHQ5HkZMl3RlpSm2NHSNpgRVtl4UybF3dD058WSRj4qqCfodc9yEShz5MBP00DvFZ8vlA')
+// Initialize Stripe
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '')
 
-interface CheckoutFormProps {
-    onBack: () => void;
-}
-
-const CheckoutForm: React.FC<CheckoutFormProps> = ({ onBack }) => {
+const CheckoutForm = ({ packageId, type, quantity, billingData, onPaymentSuccess, onPaymentError }: any) => {
     const { t } = useTranslation()
     const stripe = useStripe()
     const elements = useElements()
-    const [message, setMessage] = useState<string | null>(null)
-    const [isLoading, setIsLoading] = useState(false)
+    const [isProcessing, setIsProcessing] = useState(false)
 
-    useEffect(() => {
-        if (!stripe) {
-            return
-        }
-
-        const clientSecret = new URLSearchParams(window.location.search).get(
-            'payment_intent_client_secret'
-        )
-
-        if (!clientSecret) {
-            return
-        }
-
-        stripe.retrievePaymentIntent(clientSecret).then(({ paymentIntent }) => {
-            switch (paymentIntent?.status) {
-                case 'succeeded':
-                    setMessage(t('checkout.messages.success'))
-                    break
-                case 'processing':
-                    setMessage(t('checkout.messages.processing'))
-                    break
-                case 'requires_payment_method':
-                    setMessage(t('checkout.messages.failed'))
-                    break
-                default:
-                    setMessage(t('checkout.messages.error'))
-                    break
-            }
-        })
-    }, [stripe, t])
-
-    const handleSubmit = async (e: FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
 
-        if (!stripe || !elements) {
+        if (!stripe || !elements || !billingData) {
             return
         }
 
-        setIsLoading(true)
-
-        const { error } = await stripe.confirmPayment({
-            elements,
-            confirmParams: {
-                // Return URL where the user is redirected after the payment
-                return_url: `${window.location.origin}/dashboard`,
-            },
-        })
-
-        if (error) {
-            if (error.type === 'card_error' || error.type === 'validation_error') {
-                setMessage(error.message || t('checkout.messages.unexpected'))
-            } else {
-                setMessage(t('checkout.messages.unexpected'))
-            }
-        }
-
-        setIsLoading(false)
-    }
-
-    return (
-        <div className="w-full animate-fade-in">
-            <button
-                onClick={onBack}
-                className="mb-6 text-sm text-gray-400 hover:text-white flex items-center gap-2 transition-colors group"
-            >
-                <span className="group-hover:-translate-x-1 transition-transform">←</span> {t('checkout.backToBilling')}
-            </button>
-            <form id="payment-form" onSubmit={handleSubmit} className="glass-panel p-8 w-full border border-white/20">
-                <h3 className="text-2xl font-bold mb-6 text-white">{t('checkout.paymentMethod')}</h3>
-                <PaymentElement id="payment-element" options={{ layout: 'tabs' }} />
-                <button
-                    disabled={isLoading || !stripe || !elements}
-                    id="submit"
-                    className="btn-primary mt-8 w-full"
-                >
-                    <span id="button-text">
-                        {isLoading ? <div className="flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> {t('checkout.processing')}</div> : t('checkout.payNow')}
-                    </span>
-                </button>
-                {message && <div id="payment-message" className="mt-6 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm text-center font-medium">{message}</div>}
-            </form>
-        </div>
-    )
-}
-
-const CheckoutPage = () => {
-    const { t } = useTranslation()
-    const { user } = useAuth()
-    const [step, setStep] = useState<'billing' | 'payment'>('billing')
-    const [billingData, setBillingData] = useState<BillingFormData | null>(null)
-    const [isBillingValid, setIsBillingValid] = useState(false)
-    const [clientSecret, setClientSecret] = useState('')
-    const [error, setError] = useState<string | null>(null)
-    const [isCreatingIntent, setIsCreatingIntent] = useState(false)
-
-    // Get package details from URL
-    const searchParams = new URLSearchParams(window.location.search)
-    const packageId = searchParams.get('package')
-    const type = searchParams.get('type')
-    const quantity = searchParams.get('quantity') || '1'
-
-    const handleBillingValidation = (isValid: boolean, data: BillingFormData) => {
-        setIsBillingValid(isValid)
-        setBillingData(data)
-    }
-
-    const handleProceedToPayment = async () => {
-        if (!isBillingValid || !billingData) {
-            setError(t('checkout.errors.fillRequired'))
-            return
-        }
-
-        setIsCreatingIntent(true)
-        setError(null)
+        setIsProcessing(true)
 
         try {
-            const response = await apiClient.post('/payment/create-intent', {
+            // 1. Create PaymentIntent on the backend
+            const { data } = await apiClient.post('/payment/create-intent', {
                 packageId,
                 type,
                 quantity,
                 billingData
             })
 
-            setClientSecret(response.data.clientSecret)
-            setStep('payment')
-        } catch (err: any) {
-            console.error('Failed to create payment intent:', err)
+            const { clientSecret } = data
 
-            const errorMessage = err.response?.data?.error || t('checkout.errors.creatingPayment')
+            // 2. Confirm payment with Stripe
+            const result = await stripe.confirmCardPayment(clientSecret, {
+                payment_method: {
+                    card: elements.getElement(CardElement)!,
+                    billing_details: {
+                        name: billingData.companyName,
+                        email: billingData.billingEmail,
+                        address: {
+                            line1: billingData.street,
+                            city: billingData.city,
+                            postal_code: billingData.postalCode,
+                            country: 'RO',
+                        },
+                    },
+                },
+            })
 
-            if (errorMessage.includes('Invalid CUI')) {
-                setError(t('checkout.errors.invalidCui'))
-            } else if (errorMessage.includes('Missing required billing field')) {
-                setError(t('checkout.errors.allRequired'))
-            } else if (errorMessage.includes('Invalid email')) {
-                setError(t('checkout.errors.invalidEmail'))
+            if (result.error) {
+                onPaymentError(result.error.message)
             } else {
-                setError(errorMessage)
+                if (result.paymentIntent.status === 'succeeded') {
+                    // 3. Optional: Call backend to verify immediately (backup for webhook).
+                    // amount is intentionally omitted — the backend fetches it from Stripe.
+                    try {
+                        await apiClient.post('/payment/verify', {
+                            orderId: result.paymentIntent.id,
+                            packageId,
+                            type,
+                            quantity,
+                            billingData
+                        })
+                    } catch (verifyErr) {
+                        console.error('Immediate verification failed, relying on webhook:', verifyErr)
+                    }
+                    onPaymentSuccess(result.paymentIntent.id)
+                }
             }
+        } catch (err: any) {
+            console.error('Payment Error:', err)
+            onPaymentError(err.response?.data?.error || t('checkout.errors.creatingPayment'))
         } finally {
-            setIsCreatingIntent(false)
+            setIsProcessing(false)
         }
     }
 
-    const appearance = {
-        theme: 'night' as const,
-        variables: {
-            colorPrimary: '#8b5cf6',
-            colorBackground: '#0f172a',
-            colorText: '#f8fafc',
-            colorDanger: '#ef4444',
-            fontFamily: 'Outfit, Inter, system-ui, sans-serif',
-            spacingUnit: '4px',
-            borderRadius: '12px',
-        },
+    return (
+        <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+            <div className="p-6 bg-white/5 border border-white/10 rounded-2xl shadow-inner shadow-black/20">
+                <label className="block text-xs font-black text-gray-500 mb-4 uppercase tracking-widest">
+                    Card Details
+                </label>
+                <div className="p-4 bg-slate-900/50 rounded-xl border border-white/5 focus-within:border-primary-500/50 transition-colors">
+                    <CardElement options={{
+                        style: {
+                            base: {
+                                fontSize: '16px',
+                                color: '#fff',
+                                '::placeholder': {
+                                    color: '#64748b',
+                                },
+                            },
+                        }
+                    }} />
+                </div>
+            </div>
+
+            <button
+                type="submit"
+                disabled={!stripe || isProcessing}
+                className="btn-primary w-full group transition-all"
+            >
+                {isProcessing ? (
+                    <div className="flex items-center justify-center gap-2">
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        processing secure payment...
+                    </div>
+                ) : (
+                    <span className="flex items-center justify-center gap-2">
+                        {t('checkout.confirmAndPay')}
+                        <span className="group-hover:translate-x-1 transition-transform">→</span>
+                    </span>
+                )}
+            </button>
+        </form>
+    )
+}
+
+const CheckoutPage = () => {
+    const { t } = useTranslation()
+    const { user } = useAuth()
+    const [billingData, setBillingData] = useState<BillingFormData | null>(null)
+    const [isBillingValid, setIsBillingValid] = useState(false)
+    const [step, setStep] = useState(1)
+    const [error, setError] = useState<string | null>(null)
+    const [paymentSuccessId, setPaymentSuccessId] = useState<string | null>(null)
+    const [redirectCountdown, setRedirectCountdown] = useState(3)
+    const [stripeCheckoutLoading, setStripeCheckoutLoading] = useState(false)
+    const redirectTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+    const searchParams = new URLSearchParams(window.location.search)
+    const packageId = searchParams.get('package')
+    const type = searchParams.get('type')
+    const quantity = searchParams.get('quantity') || '1'
+
+    // Redirect to Stripe Checkout — billing address, VAT ID, and company name
+    // are collected directly on Stripe's hosted page.
+    const handleStripeCheckout = async () => {
+        if (!packageId) { setError('No package selected'); return }
+        setStripeCheckoutLoading(true)
+        setError(null)
+        try {
+            const { data } = await apiClient.post('/payment/checkout-session', {
+                packageId,
+                quantity: parseInt(quantity, 10) || 1,
+            })
+            window.location.href = data.url
+        } catch (err: any) {
+            setError(err.response?.data?.error || 'Failed to start checkout. Please try again.')
+            setStripeCheckoutLoading(false)
+        }
     }
-    const options = {
-        clientSecret,
-        appearance,
+
+    const handleBillingValidation = (isValid: boolean, data: BillingFormData) => {
+        setIsBillingValid(isValid)
+        setBillingData(data)
+    }
+
+    const handleNextStep = () => {
+        if (!isBillingValid) {
+            setError(t('checkout.errors.fillRequired'))
+            return
+        }
+        setError(null)
+        setStep(2)
+    }
+
+    useEffect(() => {
+        if (!paymentSuccessId) return
+        redirectTimerRef.current = setInterval(() => {
+            setRedirectCountdown((n) => {
+                if (n <= 1) {
+                    clearInterval(redirectTimerRef.current!)
+                    window.location.href = '/dashboard'
+                    return 0
+                }
+                return n - 1
+            })
+        }, 1000)
+        return () => {
+            if (redirectTimerRef.current) clearInterval(redirectTimerRef.current)
+        }
+    }, [paymentSuccessId])
+
+    if (paymentSuccessId) {
+        return (
+            <div className="min-h-screen py-32 px-4 text-center">
+                <div className="w-16 h-16 bg-green-500/20 text-green-500 rounded-full flex items-center justify-center mx-auto mb-8 text-4xl animate-bounce">
+                    ✓
+                </div>
+                <h1 className="text-4xl font-bold text-white mb-4">Payment Successful!</h1>
+                <p className="text-gray-400 mb-4">Your credits have been added. You can now start or manage your events.</p>
+                <p className="text-gray-500 mb-12 text-sm">Redirecting to dashboard in {redirectCountdown}s…</p>
+                <a href="/dashboard" className="btn-primary px-12">Go to Dashboard Now</a>
+            </div>
+        )
     }
 
     return (
@@ -192,86 +218,131 @@ const CheckoutPage = () => {
                 <div className="flex justify-center mb-12">
                     <div className="flex items-center gap-4">
                         <div className="flex items-center gap-3">
-                            <div className={`flex items-center justify-center w-10 h-10 rounded-full font-bold transition-all ${step === 'billing' ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/50' : 'bg-green-500 text-white'
-                                }`}>
-                                {step === 'payment' ? '✓' : '1'}
+                            <div className={`flex items-center justify-center w-10 h-10 rounded-full font-bold transition-all ${step >= 1 ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/50' : 'bg-white/5 text-gray-500 border border-white/10'}`}>
+                                1
                             </div>
-                            <span className={`text-sm font-semibold transition-colors ${step === 'billing' ? 'text-white' : 'text-gray-400'}`}>{t('checkout.steps.billing')}</span>
+                            <span className={`text-sm font-semibold transition-colors ${step >= 1 ? 'text-white' : 'text-gray-500'}`}>{t('checkout.steps.billing')}</span>
                         </div>
 
-                        <div className="w-12 h-0.5 bg-white/10 rounded-full"></div>
+                        <div className={`w-12 h-0.5 rounded-full transition-colors ${step >= 2 ? 'bg-primary-600' : 'bg-white/10'}`}></div>
 
                         <div className="flex items-center gap-3">
-                            <div className={`flex items-center justify-center w-10 h-10 rounded-full font-bold transition-all ${step === 'payment' ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/50' : 'bg-white/5 text-gray-500 border border-white/10'
-                                }`}>
+                            <div className={`flex items-center justify-center w-10 h-10 rounded-full font-bold transition-all ${step >= 2 ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/50' : 'bg-white/5 text-gray-500 border border-white/10'}`}>
                                 2
                             </div>
-                            <span className={`text-sm font-semibold transition-colors ${step === 'payment' ? 'text-white' : 'text-gray-500'}`}>{t('checkout.steps.payment')}</span>
+                            <span className={`text-sm font-semibold transition-colors ${step >= 2 ? 'text-white' : 'text-gray-500'}`}>{t('checkout.steps.payment')}</span>
                         </div>
                     </div>
                 </div>
 
-                {/* Step Content */}
-                {step === 'billing' ? (
-                    <div className="animate-slide-up">
-                        <BillingDataForm
-                            onValidationChange={handleBillingValidation}
-                            initialData={user?.companyDetails}
-                        />
-
-                        {error && (
-                            <div className="mt-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm font-medium animate-shake">
-                                {error}
+                {/* ── Primary flow: Stripe Checkout (hosted, collects billing + VAT) ── */}
+                <div className="mb-8 p-6 bg-white/5 border border-primary-500/30 rounded-2xl animate-slide-up">
+                    <div className="text-[10px] font-black text-primary-400 uppercase tracking-widest mb-1">Recommended</div>
+                    <h2 className="text-lg font-bold text-white mb-2">Pay with Stripe Checkout</h2>
+                    <p className="text-gray-400 text-sm mb-6">
+                        Stripe securely collects your card, billing address, and VAT ID.
+                        No data is stored on our servers until payment is confirmed.
+                    </p>
+                    {error && (
+                        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
+                            {error}
+                        </div>
+                    )}
+                    <button
+                        onClick={handleStripeCheckout}
+                        disabled={stripeCheckoutLoading || !packageId}
+                        className="btn-primary w-full group transition-all"
+                    >
+                        {stripeCheckoutLoading ? (
+                            <div className="flex items-center justify-center gap-2">
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                Redirecting to Stripe...
                             </div>
+                        ) : (
+                            <span className="flex items-center justify-center gap-2">
+                                Continue to Stripe Checkout
+                                <span className="group-hover:translate-x-1 transition-transform">→</span>
+                            </span>
                         )}
+                    </button>
+                </div>
 
-                        <button
-                            onClick={handleProceedToPayment}
-                            disabled={!isBillingValid || isCreatingIntent}
-                            className="btn-primary mt-8 w-full group"
-                        >
-                            {isCreatingIntent ? (
-                                <div className="flex items-center justify-center gap-2">
-                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                    {t('checkout.preparingPayment')}
+                <div className="relative flex items-center gap-4 mb-8">
+                    <div className="flex-1 h-px bg-white/10" />
+                    <span className="text-xs text-gray-500 uppercase tracking-widest">or pay with card directly</span>
+                    <div className="flex-1 h-px bg-white/10" />
+                </div>
+
+                <div className="animate-slide-up">
+                    {step === 1 ? (
+                        <>
+                            <BillingDataForm
+                                onValidationChange={handleBillingValidation}
+                                initialData={user?.companyDetails}
+                            />
+                            {error && (
+                                <div className="mt-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm font-medium animate-shake">
+                                    {error}
                                 </div>
-                            ) : (
+                            )}
+                            <button
+                                onClick={handleNextStep}
+                                className="btn-primary mt-8 w-full group transition-all"
+                            >
                                 <span className="flex items-center justify-center gap-2">
                                     {t('checkout.continuePayment')}
                                     <span className="group-hover:translate-x-1 transition-transform">→</span>
                                 </span>
-                            )}
-                        </button>
-                    </div>
-                ) : (
-                    clientSecret && (
-                        <Elements options={options} stripe={stripePromise}>
-                            <CheckoutForm onBack={() => setStep('billing')} />
-                        </Elements>
-                    )
-                )}
+                            </button>
+                        </>
+                    ) : (
+                        <div className="animate-fade-in">
+                            <div className="mb-6 p-6 bg-white/5 rounded-2xl border border-white/10 flex justify-between items-center group">
+                                <div>
+                                    <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">{t('checkout.selectedPackage')}</div>
+                                    <div className="text-xl font-bold text-white uppercase tracking-tight group-hover:text-primary-400 transition-colors">
+                                        {packageId} ({type})
+                                    </div>
+                                </div>
+                                <button onClick={() => setStep(1)} className="text-xs text-gray-400 hover:text-white transition-colors underline decoration-primary-500/30 underline-offset-4">
+                                    Edit Billing
+                                </button>
+                            </div>
 
-                {/* Security & Trust Badges */}
+                            {error && (
+                                <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm font-medium animate-shake">
+                                    {error}
+                                </div>
+                            )}
+
+                            <Elements stripe={stripePromise}>
+                                <CheckoutForm
+                                    packageId={packageId}
+                                    type={type}
+                                    quantity={quantity}
+                                    billingData={billingData}
+                                    onPaymentSuccess={(id: string) => setPaymentSuccessId(id)}
+                                    onPaymentError={(msg: string) => setError(msg)}
+                                />
+                            </Elements>
+                        </div>
+                    )}
+                </div>
+
+                {/* Security Badges */}
                 <div className="mt-12 py-8 border-t border-white/5 flex flex-wrap justify-center items-center gap-8 md:gap-12 opacity-40 grayscale hover:grayscale-0 hover:opacity-100 transition-all duration-500">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-xl">🔒</div>
                         <div className="text-left">
                             <div className="text-[10px] font-black text-white uppercase tracking-widest">{t('checkout.badges.secure')}</div>
-                            <div className="text-[10px] text-gray-500 font-bold">{t('checkout.badges.encryption')}</div>
+                            <div className="text-[10px] text-gray-500 font-bold">SSL · 256-BIT · STRIPE</div>
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-xl">🇪🇺</div>
+                        <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-xl">🇷🇴</div>
                         <div className="text-left">
-                            <div className="text-[10px] font-black text-white uppercase tracking-widest">{t('checkout.badges.hosted')}</div>
-                            <div className="text-[10px] text-gray-500 font-bold">{t('checkout.badges.region')}</div>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-xl">🛡️</div>
-                        <div className="text-left">
-                            <div className="text-[10px] font-black text-white uppercase tracking-widest">{t('checkout.badges.gdpr')}</div>
-                            <div className="text-[10px] text-gray-500 font-bold">{t('checkout.badges.privacy')}</div>
+                            <div className="text-[10px] font-black text-white uppercase tracking-widest">ROMANIA ONLY</div>
+                            <div className="text-[10px] text-gray-500 font-bold">Optimized for RO market</div>
                         </div>
                     </div>
                 </div>

@@ -17,6 +17,7 @@ export default function GuestScanPage() {
   const [matches, setMatches] = useState<Photo[]>([])
   const [noMatch, setNoMatch] = useState(false)
   const [mode, setMode] = useState<'camera' | 'upload'>('camera')
+  const [cameraError, setCameraError] = useState<string | null>(null)
   const [organizerLogo, setOrganizerLogo] = useState<string | undefined>(undefined)
 
   // Fetch Event Details (for branding)
@@ -191,13 +192,39 @@ export default function GuestScanPage() {
             <div className="flex-1 relative bg-black rounded-3xl overflow-hidden shadow-2xl border border-white/10 mb-8">
               {mode === 'camera' ? (
                 <>
+                  {cameraError ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-dark-900 gap-4">
+                      <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center">
+                        <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" /></svg>
+                      </div>
+                      <p className="text-red-400 font-bold text-sm">Camera access denied</p>
+                      <p className="text-gray-400 text-xs">Allow camera access in your browser, or upload a photo instead.</p>
+                      <div className="flex flex-col gap-2 w-full mt-2">
+                        <button
+                          onClick={() => { setCameraError(null) }}
+                          className="btn-ghost py-2 text-sm w-full"
+                        >
+                          Retry Camera
+                        </button>
+                        <button
+                          onClick={() => setMode('upload')}
+                          className="btn-primary py-2 text-sm w-full"
+                        >
+                          Upload a Photo Instead
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
                   <Webcam
                     audio={false}
                     ref={webcamRef}
                     screenshotFormat="image/jpeg"
                     videoConstraints={videoConstraints}
+                    onUserMediaError={() => setCameraError('Camera access denied')}
                     className="absolute inset-0 w-full h-full object-cover"
                   />
+                  )}
+                  {!cameraError && (
                   <div className="absolute inset-x-0 bottom-0 p-8 bg-gradient-to-t from-black/80 to-transparent flex justify-center items-center gap-8">
                     {/* Upload Button */}
                     <button onClick={() => setMode('upload')} className="p-3 rounded-full bg-white/10 backdrop-blur-md text-white hover:bg-white/20 transition-colors">
@@ -217,6 +244,7 @@ export default function GuestScanPage() {
                       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                     </button>
                   </div>
+                  )}
                 </>
               ) : (
                 <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-dark-900">
@@ -286,7 +314,7 @@ export default function GuestScanPage() {
                       onClick={() => {
                         matches.forEach((p, i) => {
                           const link = document.createElement('a');
-                          link.href = p.s3Url;
+                          link.href = p.s3Url ?? '';
                           link.download = `photo-${i + 1}.jpg`;
                           link.click();
                         });
@@ -326,7 +354,7 @@ export default function GuestScanPage() {
                           <button
                             onClick={() => {
                               // Instagram doesn't have a direct URL share like WA, so we copy link to clipboard
-                              navigator.clipboard.writeText(photo.s3Url);
+                              navigator.clipboard.writeText(photo.s3Url ?? '');
                               alert('Photo link copied! Share it on your Instagram Story.');
                             }}
                             className="flex-1 bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white p-2 rounded-xl flex items-center justify-center font-bold text-[10px]"

@@ -9,10 +9,7 @@ import * as s3Params from '../src/utils/s3';
 jest.mock('../src/utils/rekognition');
 jest.mock('../src/utils/dynamodb');
 jest.mock('../src/utils/s3');
-// Mock dependencies
-jest.mock('../src/utils/rekognition');
-jest.mock('../src/utils/dynamodb');
-jest.mock('../src/utils/s3');
+
 // Using real response utility
 // jest.mock('../src/utils/response');
 
@@ -23,6 +20,11 @@ describe('matchFace', () => {
         },
         headers: {
             'content-type': 'application/json',
+        },
+        requestContext: {
+            identity: {
+                sourceIp: '127.0.0.1'
+            }
         },
         body: 'base64encodedimage',
         isBase64Encoded: true,
@@ -41,7 +43,7 @@ describe('matchFace', () => {
         const response = await handler(event);
         expect(response.statusCode).toBe(400);
         const body = JSON.parse(response.body);
-        expect(body.error).toContain('eventId');
+        expect(body.error).toMatch(/eventId/);
     });
 
     it('should return empty matches if no faces found in Rekognition', async () => {

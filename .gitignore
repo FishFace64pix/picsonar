@@ -2,27 +2,56 @@
 node_modules/
 .pnp
 .pnp.js
+.pnpm-store/
 
 # Testing
 coverage/
+*.lcov
+test-results/
+playwright-report/
+.nyc_output/
 
-# Production
+# Production builds
 build/
 dist/
-.serverless/
+out/
+.vite/
+.turbo/
 
-# Environment variables
+# Serverless Framework
+.serverless/
+.serverless_plugins/
+
+# Environment variables (NEVER commit)
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*.local
+.env.development
+.env.production
+.env.staging
+.env.test
+!.env.example
 
-# Logs
+# Logs / deploy artifacts
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
+pnpm-debug.log*
+deploy_output*.txt
+deployLogs.txt
+awslogs.txt
+logs.txt
+aws_events.json
+payload.json
+response.json
+out.json
+update-*.json
+test-results.json
+tsc_output*.txt
+tmp_*.js
+tmp_*.ts
 
 # IDE
 .vscode/
@@ -30,18 +59,34 @@ lerna-debug.log*
 *.swp
 *.swo
 *~
+.cursor/
+*.iml
 
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # AWS
 .aws-sam/
 *.zip
+samconfig.toml
 
 # Terraform
 .terraform/
 *.tfstate
-*.tfstate.backup
+*.tfstate.*
+*.tfplan
 .terraform.lock.hcl
+crash.log
 
+# TypeScript build info
+*.tsbuildinfo
+
+# Cache
+.cache/
+.eslintcache
+.stylelintcache
+
+# Generated docs
+docs/generated/

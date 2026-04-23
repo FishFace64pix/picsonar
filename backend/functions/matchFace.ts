@@ -1,170 +1,158 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
-import { searchFacesByImage } from '../src/utils/rekognition'
-import { getItem, queryItems } from '../src/utils/dynamodb'
-import { getSignedUrlForDownload } from '../src/utils/s3'
-import { successResponse, errorResponse } from '../src/utils/response'
+/**
+ * POST /events/{eventId}/match
+ *
+ * Public face-matching endpoint — the product's core guest flow.
+ *
+ * Security:
+ *   - NO auth (guests scan a QR and upload a selfie).
+ *   - DynamoDB-backed rate limit (per IP + per event): prevents abuse of
+ *     this expensive endpoint. The previous in-memory limiter was per-Lambda
+ *     instance, so trivially defeated by fan-out across cold starts.
+ *   - validateImageBuffer: magic-byte + size guard.
+ *   - FaceIndex batch-fetched once per event (O(1) lookup), then photos
+ *     fetched in parallel per face.
+ */
+import type { APIGatewayProxyEvent } from 'aws-lambda'
 import { z } from 'zod'
 
-const REKOGNITION_COLLECTION_ID = process.env.REKOGNITION_COLLECTION_ID!
-const FACES_TABLE = process.env.FACES_TABLE!
-const PHOTOS_TABLE = process.env.PHOTOS_TABLE!
+import { QUOTA } from '@picsonar/shared/constants'
 
-// ========== IP RATE LIMITING (in-memory, per Lambda instance) ==========
-// Protects against abuse of this costly public endpoint until API GW usage plan is configured.
-// Allows MAX_REQUESTS per IP per WINDOW_MS.
-const MAX_REQUESTS = 10          // max 10 requests per minute per IP
-const WINDOW_MS = 60 * 1000      // 1 minute window
-const ipRequestMap = new Map<string, { count: number; windowStart: number }>()
+import { getEnv } from '../src/config/env'
+import { withHandler } from '../src/middleware/handler'
+import { parsePath, parseQuery } from '../src/middleware/validate'
+import {
+  enforceRateLimit,
+  rateLimitIdentity,
+} from '../src/middleware/rateLimit'
+import { getItem, queryItems } from '../src/utils/dynamodb'
+import { searchFacesByImage } from '../src/utils/rekognition'
+import { getSignedUrlForDownload } from '../src/utils/s3'
+import { validateImageBuffer } from '../src/utils/fileValidation'
+import { NotFoundError, ValidationError } from '../src/utils/errors'
+import { successResponse } from '../src/utils/response'
 
-function isRateLimited(ip: string): boolean {
-  const now = Date.now()
-  const entry = ipRequestMap.get(ip)
-  if (!entry || now - entry.windowStart > WINDOW_MS) {
-    ipRequestMap.set(ip, { count: 1, windowStart: now })
-    return false
+// eventId is accepted either on the path or the querystring for backward compat.
+const PathSchema = z.object({ eventId: z.string().uuid().optional() })
+const QuerySchema = z.object({ eventId: z.string().uuid().optional() })
+
+export const handler = withHandler(async (event: APIGatewayProxyEvent, ctx) => {
+  const env = getEnv()
+  const path = parsePath(event, PathSchema)
+  const query = parseQuery(event, QuerySchema)
+  const eventId = path.eventId ?? query.eventId
+  if (!eventId) throw new ValidationError('eventId is required')
+
+  await enforceRateLimit({
+    endpoint: `match:${eventId}`,
+    identity: rateLimitIdentity(event),
+    max: QUOTA.MATCH_PER_MINUTE,
+    windowSec: 60,
+  })
+
+  // Verify the event exists & is active.
+  const eventData = await getItem(env.EVENTS_TABLE, { eventId })
+  if (!eventData) throw new NotFoundError('Event not found')
+
+  const contentType =
+    event.headers?.['content-type'] ?? event.headers?.['Content-Type'] ?? ''
+  let imageBuffer: Buffer
+
+  if (contentType.includes('multipart/form-data')) {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const parser = require('lambda-multipart-parser')
+    const parsed = await parser.parse(event)
+    const file = parsed.files?.find((f: any) => f.fieldname === 'image')
+    if (!file) throw new ValidationError("Image file missing (field 'image')")
+    imageBuffer = file.content
+  } else {
+    const body = event.body ?? ''
+    if (!body) throw new ValidationError('Image data required')
+    imageBuffer = event.isBase64Encoded
+      ? Buffer.from(body, 'base64')
+      : Buffer.from(body, 'binary')
   }
-  entry.count++
-  if (entry.count > MAX_REQUESTS) {
-    console.warn(`Rate limit exceeded for IP: ${ip} (${entry.count} req/min)`)
-    return true
+
+  // Magic-byte + size validation, capped at QUOTA.MAX_FACE_BYTES (smaller
+  // than photo upload limit — selfie only).
+  await validateImageBuffer(imageBuffer, {
+    maxBytes: QUOTA.MAX_FACE_BYTES,
+  })
+
+  // --- Rekognition search ---
+  const faceMatches = await searchFacesByImage(
+    env.REKOGNITION_COLLECTION_ID,
+    imageBuffer,
+  )
+  if (faceMatches.length === 0) {
+    return successResponse({ matches: [] }, 200, {
+      requestOrigin: ctx.requestOrigin,
+    })
   }
-  return false
-}
-// ========================================================================
 
-// Input validation schema
-const QuerySchema = z.object({
-  eventId: z.string().min(1, "eventId is required")
-})
+  // --- Index all event faces ONCE for O(1) lookup ---
+  const allEventFaces = await queryItems(
+    env.FACES_TABLE,
+    'eventId = :eventId',
+    { ':eventId': eventId },
+    'eventId-index',
+  )
+  const faceMap = new Map<string, any>()
+  for (const face of allEventFaces) {
+    if (face.rekognitionFaceId) faceMap.set(face.rekognitionFaceId, face)
+  }
 
-export const handler = async (
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> => {
-  try {
-    // Rate limiting check
-    const clientIp =
-      event.headers['x-forwarded-for']?.split(',')[0].trim() ||
-      event.requestContext?.identity?.sourceIp ||
-      'unknown'
-
-    if (isRateLimited(clientIp)) {
-      return errorResponse('Too many requests. Please try again later.', 429)
-    }
-
-    const queryParams = event.queryStringParameters || {}
-    const validationResult = QuerySchema.safeParse(queryParams)
-
-    if (!validationResult.success) {
-      const issue = validationResult.error.issues[0]
-      return errorResponse(`${issue.path.join('.')}: ${issue.message}`, 400)
-    }
-
-    const { eventId } = validationResult.data
-
-    // Check for multipart/form-data
-    const contentType = event.headers['content-type'] || event.headers['Content-Type'] || ''
-
-    let imageBuffer: Buffer
-
-    if (contentType.includes('multipart/form-data')) {
-      const parser = require('lambda-multipart-parser')
-      const result = await parser.parse(event)
-      const file = result.files.find((f: any) => f.fieldname === 'image')
-
-      if (!file) {
-        return errorResponse('Image file is missing in form data', 400)
-      }
-      imageBuffer = file.content
-    } else {
-      // Fallback for direct binary or base64 (if used elsewhere)
-      const body = event.body || ''
-      const isBase64 = event.isBase64Encoded
-      if (!body) return errorResponse('Image data is required', 400)
-
-      imageBuffer = isBase64 ? Buffer.from(body, 'base64') : Buffer.from(body, 'binary')
-    }
-
-    // 1. Search for matching faces in Rekognition
-    const faceMatches = await searchFacesByImage(REKOGNITION_COLLECTION_ID, imageBuffer)
-
-    if (faceMatches.length === 0) {
-      return successResponse({ matches: [] })
-    }
-
-    // 2. Optimization: Fetch ALL faces for this event ONCE
-    // This removes the N+1 query problem.
-    // Assuming 'eventId-index' exists on FacesTable as seen in previous code.
-    const allEventFaces = await queryItems(
-      FACES_TABLE,
-      'eventId = :eventId',
-      { ':eventId': eventId },
-      'eventId-index'
-    )
-
-    // 3. Create a Map for O(1) lookup: rekognitionFaceId -> FaceRecord
-    const faceMap = new Map<string, any>()
-    for (const face of allEventFaces) {
-      if (face.rekognitionFaceId) {
-        faceMap.set(face.rekognitionFaceId, face)
-      }
-    }
-
-    const matches = []
-
-    // 4. Iterate Matches and Lookup in Map
-    for (const match of faceMatches) {
-      if (!match.Face || !match.Face.FaceId) continue
-
-      const rekognitionFaceId = match.Face.FaceId
-      const confidence = match.Similarity || 0
+  // --- Resolve matches → photos (parallel per face) ---
+  const matches = await Promise.all(
+    faceMatches.map(async (match) => {
+      const rekognitionFaceId = match.Face?.FaceId
+      if (!rekognitionFaceId) return null
+      const similarity = match.Similarity ?? 0
+      if (similarity < QUOTA.FACE_MATCH_THRESHOLD) return null
 
       const faceRecord = faceMap.get(rekognitionFaceId)
+      if (!faceRecord) return null
 
-      if (!faceRecord) continue
+      const associatedPhotos: string[] = faceRecord.associatedPhotos ?? []
+      const photos = (
+        await Promise.all(
+          associatedPhotos.map(async (photoId) => {
+            const photo = await getItem(env.PHOTOS_TABLE, { photoId })
+            if (!photo) return null
+            if (photo.s3Key) {
+              photo.s3Url = await getSignedUrlForDownload(
+                env.RAW_PHOTOS_BUCKET,
+                photo.s3Key,
+                env.SIGNED_URL_TTL_SECONDS,
+              )
+            }
+            return {
+              photoId: photo.photoId,
+              eventId: photo.eventId,
+              s3Url: photo.s3Url,
+              thumbnailUrl: photo.thumbnailS3Key
+                ? await getSignedUrlForDownload(
+                    env.RAW_PHOTOS_BUCKET,
+                    photo.thumbnailS3Key,
+                    env.SIGNED_URL_TTL_SECONDS,
+                  )
+                : photo.s3Url,
+              uploadedAt: photo.uploadedAt,
+            }
+          }),
+        )
+      ).filter((p): p is NonNullable<typeof p> => p !== null)
 
-      // Get all photos associated with this face
-      // Note: We might still have N queries here if getting photos one by one.
-      // Optimization: If possible, we could fetch all photos for event, but that might be too large.
-      // For now, keeping photo fetch as is, but could be batched (BatchGetItem) if DynamoDB limit allows (up to 100 items).
-
-      const photos = []
-      // Use BatchGetItem logic if there are many photos, but for now linear fetch is existing logic.
-      // A better approach for Phase 2: Photos should be denormalized or fetched in bulk.
-
-      const associatedPhotos = faceRecord.associatedPhotos || []
-
-      // Small optimization: Parallelize photo fetches
-      const photoPromises = associatedPhotos.map(async (photoId: string) => {
-        return getItem(PHOTOS_TABLE, { photoId })
-      })
-
-      const fetchedPhotos = await Promise.all(photoPromises)
-
-      for (const photo of fetchedPhotos) {
-        if (photo) {
-          // If photo has s3Key, regenerate signed URL, otherwise use existing s3Url
-          if (photo.s3Key) {
-            const RAW_PHOTOS_BUCKET = process.env.RAW_PHOTOS_BUCKET!
-            // Cache signed URL check? Usually signed URLs are cheap to generate.
-            const s3Url = await getSignedUrlForDownload(RAW_PHOTOS_BUCKET, photo.s3Key, 86400 * 7)
-            photos.push({ ...photo, s3Url })
-          } else {
-            photos.push(photo)
-          }
-        }
-      }
-
-      matches.push({
+      return {
         faceId: faceRecord.faceId,
-        confidence,
+        confidence: similarity,
         photos,
-      })
-    }
+      }
+    }),
+  )
 
-    return successResponse({ matches })
-  } catch (error: any) {
-    console.error('Error matching face:', error)
-    return errorResponse(error.message || 'Failed to match face', 500)
-  }
-}
-
+  return successResponse(
+    { matches: matches.filter((m): m is NonNullable<typeof m> => m !== null) },
+    200,
+    { requestOrigin: ctx.requestOrigin },
+  )
+})

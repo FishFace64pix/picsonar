@@ -1,13 +1,41 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { User } from '../types'
+/**
+ * Auth context.
+ *
+ * - The access token lives in-memory only (see tokenStore). The user is
+ *   re-hydrated from the server via /auth/me on mount — no user-JSON dumps in
+ *   localStorage.
+ * - The refresh token is held in-memory in this demo; the follow-up is to
+ *   have the backend return it as an httpOnly cookie and drop it from JSON.
+ * - On 401, the axios interceptor transparently refreshes the access token.
+ */
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
+import type { User } from '@picsonar/shared/types'
 import { authApi } from '../api/auth'
+import {
+  clearTokens,
+  getAccessToken,
+  setTokens,
+} from '../api/tokenStore'
 
 interface AuthContextType {
   user: User | null
   loading: boolean
   login: (email: string, password: string) => Promise<void>
-  register: (email: string, password: string, name: string, legal?: any) => Promise<void>
-  logout: () => void
+  register: (
+    email: string,
+    password: string,
+    name: string,
+    phone: string,
+    legal?: unknown,
+  ) => Promise<void>
+  logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -16,61 +44,83 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // On mount: if we still have an access token in memory (SPA navigation)
+  // re-hydrate the user. On a hard refresh the token is gone so we just
+  // render the anonymous state.
   useEffect(() => {
-    const token = localStorage.getItem('authToken')
-    if (token) {
-      authApi.getCurrentUser()
-        .then(setUser)
-        .catch(() => {
-          localStorage.removeItem('authToken')
-        })
-        .finally(() => setLoading(false))
-    } else {
+    let cancelled = false
+    const token = getAccessToken()
+    if (!token) {
       setLoading(false)
+      return
+    }
+    authApi
+      .getCurrentUser()
+      .then((u) => {
+        if (!cancelled) setUser(u)
+      })
+      .catch(() => {
+        if (!cancelled) clearTokens()
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
     }
   }, [])
 
   const login = async (email: string, password: string) => {
-    const { token, user } = await authApi.login({ email, password })
-    // Ensure subscriptionStatus exists for existing users in local storage if not returned by API (mock)
-    if (!user.subscriptionStatus) {
-      user.subscriptionStatus = 'inactive' // Default to inactive or active for testing? Let's say inactive to test enforcement.
-      // Actually, for immediate testing, let's make it 'active' for existing users or handle it.
-      // The requirement is strict, so maybe 'inactive'.
-    }
-    localStorage.setItem('authToken', token)
-    localStorage.setItem('user', JSON.stringify(user))
-    setUser(user)
+    const { token, refreshToken, user: u } = await authApi.login({
+      email,
+      password,
+    })
+    setTokens({ accessToken: token, refreshToken: refreshToken ?? null })
+    setUser(u)
   }
 
-  const register = async (email: string, password: string, name: string, legal?: any) => {
-    const { token, user } = await authApi.register({ email, password, name, legal })
-    // New users get a trial or inactive? User didn't specify trial.
-    // "Abone olmazsa" -> implies they start as inactive until they subscribe.
-    if (!user.subscriptionStatus) user.subscriptionStatus = 'inactive'
-
-    localStorage.setItem('authToken', token)
-    localStorage.setItem('user', JSON.stringify(user))
-    setUser(user)
+  const register = async (
+    email: string,
+    password: string,
+    name: string,
+    phone: string,
+    legal?: unknown,
+  ) => {
+    const { token, refreshToken, user: u } = await authApi.register({
+      email,
+      password,
+      name,
+      phone,
+      legal,
+    })
+    setTokens({ accessToken: token, refreshToken: refreshToken ?? null })
+    setUser(u)
   }
 
-  const logout = () => {
-    authApi.logout()
+  const logout = async () => {
+    // Always clear local state first so the UI flips to signed-out without
+    // waiting on the network. Server revocation happens in the background;
+    // a failed round-trip doesn't leave a logged-in UI.
     setUser(null)
+    try {
+      await authApi.logout()
+    } finally {
+      clearTokens()
+    }
   }
 
-  return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo(
+    () => ({ user, loading, login, register, logout }),
+    [user, loading],
   )
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext)
-  if (context === undefined) {
+  const ctx = useContext(AuthContext)
+  if (ctx === undefined) {
     throw new Error('useAuth must be used within an AuthProvider')
   }
-  return context
+  return ctx
 }
-

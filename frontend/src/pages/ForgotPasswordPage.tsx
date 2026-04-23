@@ -7,20 +7,15 @@ const ForgotPasswordPage: React.FC = () => {
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-    const [devToken, setDevToken] = useState<string | null>(null);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setMessage(null);
-        setDevToken(null);
 
         try {
             const response = await apiClient.post('/auth/forgot-password', { email });
             setMessage({ type: 'success', text: response.data.message });
-            if (response.data._devToken) {
-                setDevToken(response.data._devToken);
-            }
         } catch (error: any) {
             setMessage({ type: 'error', text: error.response?.data?.error || 'Failed to process request.' });
         } finally {
@@ -57,15 +52,6 @@ const ForgotPasswordPage: React.FC = () => {
                             {message && (
                                 <div className={`p-4 rounded-xl text-sm font-bold ${message.type === 'success' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
                                     {message.text}
-                                </div>
-                            )}
-
-                            {devToken && (
-                                <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-                                    <div className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1">Dev Info (Email Fail Fallback)</div>
-                                    <Link to={`/reset-password?token=${devToken}`} className="text-sm text-white font-bold underline hover:text-amber-400">
-                                        Click here to reset password for testing →
-                                    </Link>
                                 </div>
                             )}
 

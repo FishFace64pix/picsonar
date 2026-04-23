@@ -1,30 +1,65 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
-import { queryItems } from '../src/utils/dynamodb'
-import { successResponse, errorResponse } from '../src/utils/response'
+/**
+ * GET /events/{eventId}/faces
+ *
+ * Public endpoint used by the QR-scan face browser. Returns sanitized face
+ * records only — no S3 keys, no Rekognition IDs.
+ */
+import type { APIGatewayProxyEvent } from 'aws-lambda'
+import { z } from 'zod'
 
-const FACES_TABLE = process.env.FACES_TABLE!
+import { getEnv } from '../src/config/env'
+import { withHandler } from '../src/middleware/handler'
+import { parsePath, parseQuery } from '../src/middleware/validate'
+import {
+  enforceRateLimit,
+  rateLimitIdentity,
+} from '../src/middleware/rateLimit'
+import { getItem, queryItemsPage } from '../src/utils/dynamodb'
+import { NotFoundError } from '../src/utils/errors'
+import { successResponse } from '../src/utils/response'
 
-export const handler = async (
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> => {
-  try {
-    const eventId = event.pathParameters?.eventId
+const PathSchema = z.object({ eventId: z.string().uuid() })
+const QuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  cursor: z.string().max(2048).optional(),
+})
 
-    if (!eventId) {
-      return errorResponse('eventId is required', 400)
-    }
+export const handler = withHandler(async (event: APIGatewayProxyEvent, ctx) => {
+  const { eventId } = parsePath(event, PathSchema)
+  const { limit, cursor } = parseQuery(event, QuerySchema)
+  const env = getEnv()
 
-    const faces = await queryItems(
-      FACES_TABLE,
-      'eventId = :eventId',
-      { ':eventId': eventId },
-      'eventId-index'
-    )
+  await enforceRateLimit({
+    endpoint: 'events:faces',
+    identity: rateLimitIdentity(event),
+    max: 120,
+    windowSec: 60,
+  })
 
-    return successResponse(faces)
-  } catch (error: any) {
-    console.error('Error getting event faces:', error)
-    return errorResponse(error.message || 'Failed to get event faces', 500)
-  }
-}
+  const eventData = await getItem(env.EVENTS_TABLE, { eventId })
+  if (!eventData) throw new NotFoundError('Event not found')
 
+  const { items, nextCursor } = await queryItemsPage({
+    tableName: env.FACES_TABLE,
+    indexName: 'eventId-index',
+    keyConditionExpression: 'eventId = :eventId',
+    expressionAttributeValues: { ':eventId': eventId },
+    limit,
+    cursor,
+  })
+
+  // Public-safe projection — drop rekognitionFaceId (infra leak).
+  const faces = items.map((face) => ({
+    faceId: face.faceId,
+    eventId: face.eventId,
+    samplePhotoUrl: face.samplePhotoUrl,
+    qrCodeUrl: face.qrCodeUrl,
+    associatedPhotos: face.associatedPhotos ?? [],
+  }))
+
+  return successResponse(
+    { faces, nextCursor },
+    200,
+    { requestOrigin: ctx.requestOrigin },
+  )
+})

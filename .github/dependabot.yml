@@ -1,0 +1,51 @@
+version: 2
+
+# Weekly dep freshness. Grouping is aggressive on purpose — a single PR with
+# all the AWS SDK bumps is much nicer to review than 14 individual ones.
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Europe/Bucharest
+    open-pull-requests-limit: 5
+    versioning-strategy: increase
+    groups:
+      aws-sdk:
+        patterns:
+          - '@aws-sdk/*'
+          - '@aws-lambda-powertools/*'
+      react:
+        patterns:
+          - 'react'
+          - 'react-dom'
+          - '@types/react'
+          - '@types/react-dom'
+      testing:
+        patterns:
+          - 'vitest'
+          - '@vitest/*'
+          - 'jest'
+          - 'ts-jest'
+          - '@types/jest'
+          - '@testing-library/*'
+          - '@playwright/test'
+      typescript-eslint:
+        patterns:
+          - 'typescript'
+          - 'eslint'
+          - 'eslint-*'
+          - '@typescript-eslint/*'
+    labels:
+      - dependencies
+      - npm
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - github-actions

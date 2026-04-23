@@ -26,7 +26,7 @@ export default function OrderHistoryModal({ onClose }: OrderHistoryModalProps) {
     const loadOrders = async () => {
         try {
             const data = await authApi.getOrders()
-            setOrders(data)
+            setOrders(data as Order[])
         } catch (error) {
             console.error('Failed to load orders:', error)
         } finally {

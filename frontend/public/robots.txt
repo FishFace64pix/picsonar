@@ -1,4 +1,23 @@
+# PicSonar — production robots.txt
+#
+# Allow: public marketing + legal pages.
+# Disallow: anything behind auth — the pages render a spinner for crawlers,
+#   and we don't want indexers hitting our API (they wouldn't get useful
+#   content anyway).
+
 User-agent: *
 Allow: /
+Disallow: /dashboard
+Disallow: /event/
+Disallow: /guest/
+Disallow: /profile
+Disallow: /checkout
+Disallow: /admin/
+Disallow: /verify-email
+Disallow: /reset-password
+
+# Marketing pages have no dynamic content to waste crawl budget on.
+Crawl-delay: 2
 
 Sitemap: https://picsonar.com/sitemap.xml
+Sitemap: https://picsonar.ro/sitemap.xml

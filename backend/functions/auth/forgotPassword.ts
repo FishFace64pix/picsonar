@@ -1,72 +1,81 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
-import { successResponse, errorResponse } from '../../src/utils/response'
-import { queryItems, updateItem } from '../../src/utils/dynamodb'
-import { sendResetPasswordEmail } from '../../src/utils/email'
+/**
+ * POST /auth/forgot-password
+ *
+ * Triggers the password-reset email flow.
+ * Always returns a 200 with the same message regardless of whether the email
+ * exists — prevents account enumeration.
+ * Rate-limited per-IP to blunt enumeration via timing/volume.
+ */
+import type { APIGatewayProxyEvent } from 'aws-lambda'
 import * as crypto from 'crypto'
 
-const USERS_TABLE = process.env.USERS_TABLE || ''
+import { ForgotPasswordSchema } from '@picsonar/shared/schemas'
 
-export const handler = async (
-    event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> => {
-    try {
-        if (!event.body) {
-            return errorResponse('Request body is required', 400)
-        }
+import { getEnv } from '../../src/config/env'
+import { withHandler } from '../../src/middleware/handler'
+import { parseBody } from '../../src/middleware/validate'
+import {
+  enforceRateLimit,
+  rateLimitIdentity,
+} from '../../src/middleware/rateLimit'
+import { queryItems, updateItem } from '../../src/utils/dynamodb'
+import { sendResetPasswordEmail } from '../../src/utils/email'
+import { successResponse } from '../../src/utils/response'
 
-        const { email } = JSON.parse(event.body)
-
-        if (!email) {
-            return errorResponse('Email is required', 400)
-        }
-
-        // 1. Find user
-        const users = await queryItems(
-            USERS_TABLE,
-            'email = :email',
-            { ':email': email },
-            'email-index'
-        )
-
-        if (users.length === 0) {
-            return successResponse({ message: 'If an account exists, a reset link has been sent.' }, 200)
-        }
-
-        const user = users[0]
-
-        // 2. Generate Random Token
-        const resetToken = crypto.randomBytes(32).toString('hex')
-        const resetTokenExpiry = Date.now() + 3600000 // 1 hour
-
-        // 3. Save Token to Database
-        await updateItem(
-            USERS_TABLE,
-            { userId: user.userId },
-            'SET resetToken = :token, resetTokenExpiry = :expiry',
-            { ':token': resetToken, ':expiry': resetTokenExpiry }
-        )
-
-        // 4. Send Real Email via SES
-        try {
-            await sendResetPasswordEmail(email, resetToken);
-        } catch (mailError) {
-            console.error("Email delivery failed:", mailError);
-
-            // If in dev/test, allow the process to continue with a fallback message
-            if (process.env.STAGE === 'dev' || process.env.VITE_USE_MOCK === 'true') {
-                return successResponse({
-                    message: 'Email delivery failed (likely SES verification), but you can use this token for testing.',
-                    _devToken: resetToken
-                }, 200)
-            }
-            throw mailError;
-        }
-
-        return successResponse({
-            message: 'If an account exists, a reset link has been sent.'
-        }, 200)
-    } catch (error: any) {
-        console.error('Error in forgotPassword:', error)
-        return errorResponse(error.message || 'Failed to process request', 500)
-    }
+const GENERIC_OK = {
+  message: 'If an account exists for that email, a reset link has been sent.',
 }
+
+export const handler = withHandler(async (event: APIGatewayProxyEvent, ctx) => {
+  const env = getEnv()
+
+  await enforceRateLimit({
+    endpoint: 'auth:forgot-password',
+    identity: rateLimitIdentity(event),
+    max: 5,
+    windowSec: 60,
+  })
+
+  const input = parseBody(event, ForgotPasswordSchema)
+
+  const users = await queryItems(
+    env.USERS_TABLE,
+    'email = :email',
+    { ':email': input.email.toLowerCase() },
+    'email-index',
+  )
+
+  if (users.length === 0) {
+    return successResponse(GENERIC_OK, 200, { requestOrigin: ctx.requestOrigin })
+  }
+
+  const user = users[0]
+  const resetToken = crypto.randomBytes(32).toString('hex')
+  const resetTokenExpiry = Date.now() + 60 * 60 * 1000 // 1h
+
+  await updateItem(
+    env.USERS_TABLE,
+    { userId: user.userId },
+    'SET resetToken = :token, resetTokenExpiry = :expiry',
+    { ':token': resetToken, ':expiry': resetTokenExpiry },
+  )
+
+  try {
+    await sendResetPasswordEmail(user.email, resetToken)
+  } catch (mailErr) {
+    // Don't reveal send failure to the caller (avoids enumeration) — log it.
+    console.error('[forgotPassword] email send failed', {
+      traceId: ctx.traceId,
+      mailErr,
+    })
+    if (env.NODE_ENV !== 'production') {
+      return successResponse(
+        { ...GENERIC_OK, _devToken: resetToken },
+        200,
+        { requestOrigin: ctx.requestOrigin },
+      )
+    }
+  }
+
+  return successResponse(GENERIC_OK, 200, { requestOrigin: ctx.requestOrigin })
+})

@@ -1,19 +1,41 @@
 {
   "name": "eventfacematch",
   "version": "1.0.0",
-  "description": "AI-Powered Event Photo Delivery System",
+  "description": "AI-Powered Event Photo Delivery System (PicSonar)",
   "private": true,
   "workspaces": [
+    "packages/*",
     "frontend",
     "backend"
   ],
   "scripts": {
-    "dev": "cd frontend && npm run dev",
-    "build": "cd frontend && npm run build",
-    "deploy": "cd backend && npm run deploy"
+    "dev": "npm run dev --workspace=eventfacematch-frontend",
+    "dev:backend": "npm run dev --workspace=eventfacematch-backend",
+    "dev:frontend": "npm run dev --workspace=eventfacematch-frontend",
+    "dev:all": "concurrently -n backend,frontend -c blue,magenta \"npm:dev:backend\" \"npm:dev:frontend\"",
+    "build": "npm run build --workspace=@picsonar/shared && npm run build --workspace=eventfacematch-frontend",
+    "build:shared": "npm run build --workspace=@picsonar/shared",
+    "deploy": "npm run deploy --workspace=eventfacematch-backend",
+    "seed:test-user": "npm run seed:test-user --workspace=eventfacematch-backend",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\" --ignore-path .gitignore",
+    "prepare": "husky install || true"
   },
   "devDependencies": {
-    "@types/node": "^20.10.0"
+    "@types/node": "^20.10.0",
+    "concurrently": "^9.0.1",
+    "prettier": "^3.3.3",
+    "husky": "^9.1.6",
+    "lint-staged": "^15.2.10"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": ["prettier --write"],
+    "*.{json,md,yml,yaml}": ["prettier --write"]
+  },
+  "engines": {
+    "node": ">=20.11.0"
   }
 }
 

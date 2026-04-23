@@ -1,88 +1,99 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
+/**
+ * POST /events/{eventId}/photos/bulk-delete
+ *
+ * Owner/admin bulk delete. Body: { photoIds: string[] }.
+ * Up to 100 photos per call (enforced by DeletePhotosBodySchema).
+ */
+import type { APIGatewayProxyEvent } from 'aws-lambda'
+import { z } from 'zod'
+
+import { DeletePhotosBodySchema } from '@picsonar/shared/schemas'
+
+import { getEnv } from '../src/config/env'
+import { withHandler } from '../src/middleware/handler'
+import { requireAuth } from '../src/middleware/auth'
+import { parseBody, parsePath } from '../src/middleware/validate'
+import { ensureEventOwnership } from '../src/middleware/ownership'
+import {
+  enforceRateLimit,
+  rateLimitIdentity,
+} from '../src/middleware/rateLimit'
 import { getItem, deleteItem, updateItem } from '../src/utils/dynamodb'
 import { deleteFromS3 } from '../src/utils/s3'
 import { deleteFaces } from '../src/utils/rekognition'
-import { successResponse, errorResponse } from '../src/utils/response'
+import { successResponse } from '../src/utils/response'
 
-const PHOTOS_TABLE = process.env.PHOTOS_TABLE!
-const FACES_TABLE = process.env.FACES_TABLE!
-const EVENTS_TABLE = process.env.EVENTS_TABLE!
-const RAW_PHOTOS_BUCKET = process.env.RAW_PHOTOS_BUCKET!
-const REKOGNITION_COLLECTION_ID = process.env.REKOGNITION_COLLECTION_ID!
+const PathSchema = z.object({ eventId: z.string().uuid() })
 
-export const handler = async (
-    event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> => {
+export const handler = withHandler(async (event: APIGatewayProxyEvent, ctx) => {
+  const jwt = requireAuth(event)
+  const { eventId } = parsePath(event, PathSchema)
+  const { photoIds } = parseBody(event, DeletePhotosBodySchema)
+  const env = getEnv()
+
+  await enforceRateLimit({
+    endpoint: 'photos:bulk-delete',
+    identity: rateLimitIdentity(event, jwt.userId),
+    max: 20,
+    windowSec: 60,
+  })
+
+  await ensureEventOwnership(eventId, jwt)
+
+  let deletedCount = 0
+  let totalFacesDeleted = 0
+  const errors: Array<{ photoId: string; error: string }> = []
+
+  for (const photoId of photoIds) {
     try {
-        const eventId = event.pathParameters?.eventId
-        if (!eventId) {
-            return errorResponse('eventId is required', 400)
+      const photo = await getItem(env.PHOTOS_TABLE, { photoId })
+      if (!photo || photo.eventId !== eventId) continue
+
+      if (photo.s3Key) await deleteFromS3(env.RAW_PHOTOS_BUCKET, photo.s3Key)
+      if (photo.thumbnailS3Key) {
+        await deleteFromS3(env.RAW_PHOTOS_BUCKET, photo.thumbnailS3Key)
+      }
+
+      if (Array.isArray(photo.faces) && photo.faces.length > 0) {
+        const rekIds: string[] = []
+        for (const faceId of photo.faces) {
+          const face = await getItem(env.FACES_TABLE, { faceId })
+          if (face?.rekognitionFaceId) rekIds.push(face.rekognitionFaceId)
+          await deleteItem(env.FACES_TABLE, { faceId })
         }
-
-        if (!event.body) {
-            return errorResponse('Request body is required', 400)
+        if (rekIds.length > 0) {
+          try {
+            await deleteFaces(env.REKOGNITION_COLLECTION_ID, rekIds)
+          } catch (err) {
+            console.error('[deletePhotos] Rekognition delete failed', err)
+          }
         }
+        totalFacesDeleted += photo.faces.length
+      }
 
-        const { photoIds } = JSON.parse(event.body)
-        if (!photoIds || !Array.isArray(photoIds)) {
-            return errorResponse('photoIds array is required', 400)
-        }
-
-        let deletedCount = 0
-        let totalFacesDeleted = 0
-
-        for (const photoId of photoIds) {
-            // 1. Get photo record
-            const photo = await getItem(PHOTOS_TABLE, { photoId })
-            if (!photo || photo.eventId !== eventId) continue
-
-            // 2. Delete from S3 (Original and Thumbnail)
-            if (photo.s3Key) {
-                await deleteFromS3(RAW_PHOTOS_BUCKET, photo.s3Key)
-            }
-            if (photo.thumbnailS3Key) {
-                await deleteFromS3(RAW_PHOTOS_BUCKET, photo.thumbnailS3Key)
-            }
-
-            // 3. Delete faces from Rekognition and FacesTable
-            if (photo.faces && Array.isArray(photo.faces) && photo.faces.length > 0) {
-                const rekognitionFaceIds: string[] = []
-                for (const faceId of photo.faces) {
-                    const face = await getItem(FACES_TABLE, { faceId })
-                    if (face && face.rekognitionFaceId) {
-                        rekognitionFaceIds.push(face.rekognitionFaceId)
-                    }
-                    await deleteItem(FACES_TABLE, { faceId })
-                }
-
-                if (rekognitionFaceIds.length > 0) {
-                    try {
-                        await deleteFaces(REKOGNITION_COLLECTION_ID, rekognitionFaceIds)
-                    } catch (err) {
-                        console.error('Error deleting faces from Rekognition:', err)
-                    }
-                }
-                totalFacesDeleted += photo.faces.length
-            }
-
-            // 4. Delete photo record from DynamoDB
-            await deleteItem(PHOTOS_TABLE, { photoId })
-            deletedCount++
-        }
-
-        // 5. Update event stats
-        if (deletedCount > 0) {
-            await updateItem(
-                EVENTS_TABLE,
-                { eventId },
-                'SET totalPhotos = totalPhotos - :pc, totalFaces = totalFaces - :fc',
-                { ':pc': deletedCount, ':fc': totalFacesDeleted }
-            )
-        }
-
-        return successResponse({ deletedCount, totalFacesDeleted })
-    } catch (error: any) {
-        console.error('Error deleting photos:', error)
-        return errorResponse(error.message || 'Failed to delete photos', 500)
+      await deleteItem(env.PHOTOS_TABLE, { photoId })
+      deletedCount++
+    } catch (err) {
+      console.error('[deletePhotos] per-photo failure', { photoId, err })
+      errors.push({
+        photoId,
+        error: (err as Error).message ?? 'unknown',
+      })
     }
-}
+  }
+
+  if (deletedCount > 0) {
+    await updateItem(
+      env.EVENTS_TABLE,
+      { eventId },
+      'SET totalPhotos = if_not_exists(totalPhotos, :zero) - :pc, totalFaces = if_not_exists(totalFaces, :zero) - :fc',
+      { ':pc': deletedCount, ':fc': totalFacesDeleted, ':zero': 0 },
+    )
+  }
+
+  return successResponse(
+    { deletedCount, totalFacesDeleted, errors },
+    200,
+    { requestOrigin: ctx.requestOrigin },
+  )
+})

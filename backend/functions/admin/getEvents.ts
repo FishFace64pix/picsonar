@@ -1,5 +1,6 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 import { successResponse, errorResponse } from '../../src/utils/response'
+import { verifyAuthHeader } from '../../src/utils/jwt'
 import { scanTable } from '../../src/utils/dynamodb'
 
 const EVENTS_TABLE = process.env.EVENTS_TABLE!
@@ -9,6 +10,11 @@ export const handler = async (
     event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
     try {
+        const authHeader = event.headers.Authorization || event.headers.authorization;
+        if (!authHeader) return errorResponse('Authorization header is required', 401);
+        const payload = verifyAuthHeader(authHeader);
+        if (!payload || payload.role !== 'admin') return errorResponse('Forbidden: Admin access required', 403);
+
         // 1. Get all events
         const events = await scanTable(EVENTS_TABLE)
 

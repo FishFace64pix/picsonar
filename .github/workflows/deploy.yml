@@ -1,0 +1,196 @@
+name: deploy
+
+# Triggered manually from the Actions tab (workflow_dispatch) or on a push
+# to main that should roll out to staging. Prod deploys are always manual.
+on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: 'Deployment stage (dev | staging | prod)'
+        required: true
+        default: 'staging'
+        type: choice
+        options: [dev, staging, prod]
+      skip_smoke:
+        description: 'Skip post-deploy Playwright smoke (emergency hotfix only)'
+        required: false
+        default: false
+        type: boolean
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'packages/shared/**'
+      - '.github/workflows/deploy.yml'
+
+concurrency:
+  # A single deploy target at a time per stage — prevents two pipelines
+  # racing the same CloudFormation stack.
+  group: deploy-${{ github.event.inputs.stage || 'staging' }}
+  cancel-in-progress: false
+
+permissions:
+  # Required for OIDC role assumption.
+  id-token: write
+  contents: read
+
+env:
+  NODE_VERSION: '20'
+  AWS_REGION: eu-central-1
+
+jobs:
+  resolve-stage:
+    name: resolve stage
+    runs-on: ubuntu-latest
+    outputs:
+      stage: ${{ steps.pick.outputs.stage }}
+      environment: ${{ steps.pick.outputs.environment }}
+    steps:
+      - id: pick
+        run: |
+          # workflow_dispatch uses the chosen input; push-to-main goes to staging.
+          STAGE="${{ github.event.inputs.stage }}"
+          if [ -z "$STAGE" ]; then STAGE="staging"; fi
+          echo "stage=$STAGE" >> "$GITHUB_OUTPUT"
+          echo "environment=$STAGE" >> "$GITHUB_OUTPUT"
+
+  deploy-backend:
+    name: deploy backend (${{ needs.resolve-stage.outputs.stage }})
+    needs: resolve-stage
+    # The `environment:` key is what gates prod deploys on manual reviewer
+    # approval (configured in repo settings → Environments → prod).
+    environment:
+      name: ${{ needs.resolve-stage.outputs.environment }}
+    runs-on: ubuntu-latest
+    outputs:
+      api_url: ${{ steps.sls-info.outputs.api_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --include-workspace-root
+
+      # OIDC: assumes a role the AWS account has configured to trust this
+      # repo's GitHub identity. No long-lived IAM user keys in repo secrets.
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: gha-deploy-${{ needs.resolve-stage.outputs.stage }}-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # Runtime secrets (JWT secret, Stripe key, Netopia signature, etc.) live
+      # in AWS Secrets Manager; serverless.yml references them via ssm:/secrets.
+      # Nothing sensitive is injected from GH secrets except the deploy role ARN.
+      - name: Deploy backend
+        working-directory: backend
+        run: npx serverless deploy --stage ${{ needs.resolve-stage.outputs.stage }} --region ${{ env.AWS_REGION }} --verbose
+
+      - name: Ensure Rekognition collection exists
+        working-directory: backend
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          STAGE: ${{ needs.resolve-stage.outputs.stage }}
+        run: npx ts-node scripts/ensureRekognitionCollection.ts
+
+      - name: Capture API Gateway URL
+        id: sls-info
+        working-directory: backend
+        run: |
+          API_URL=$(npx serverless info --stage ${{ needs.resolve-stage.outputs.stage }} --region ${{ env.AWS_REGION }} --verbose 2>/dev/null \
+            | grep -oE 'https://[a-z0-9]+\.execute-api\.[a-z0-9-]+\.amazonaws\.com[^ ]*' \
+            | head -n1)
+          if [ -z "$API_URL" ]; then
+            echo "Failed to resolve API URL from serverless info" >&2
+            exit 1
+          fi
+          echo "api_url=$API_URL" >> "$GITHUB_OUTPUT"
+          echo "Resolved API URL: $API_URL"
+
+  deploy-frontend:
+    name: deploy frontend (${{ needs.resolve-stage.outputs.stage }})
+    needs: [resolve-stage, deploy-backend]
+    environment:
+      name: ${{ needs.resolve-stage.outputs.environment }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --include-workspace-root
+
+      - name: Build frontend with stage-specific API URL
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ needs.deploy-backend.outputs.api_url }}
+          VITE_STAGE: ${{ needs.resolve-stage.outputs.stage }}
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: gha-deploy-frontend-${{ needs.resolve-stage.outputs.stage }}-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Sync dist to S3
+        env:
+          BUCKET: ${{ secrets.FRONTEND_S3_BUCKET }}
+        run: |
+          if [ -z "$BUCKET" ]; then
+            echo "FRONTEND_S3_BUCKET secret not set — skipping S3 sync" >&2
+            exit 1
+          fi
+          # Hashed Vite assets: cache forever. index.html: no-cache so new
+          # deploys are picked up immediately without a CDN invalidation race.
+          aws s3 sync frontend/dist/ s3://$BUCKET/ \
+            --delete \
+            --exclude "index.html" \
+            --cache-control "public,max-age=31536000,immutable"
+          aws s3 cp frontend/dist/index.html s3://$BUCKET/index.html \
+            --cache-control "no-cache,no-store,must-revalidate"
+
+      - name: Invalidate CloudFront distribution
+        if: secrets.CLOUDFRONT_DISTRIBUTION_ID != ''
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/index.html" "/"
+
+  smoke:
+    name: post-deploy smoke
+    needs: [resolve-stage, deploy-backend, deploy-frontend]
+    if: ${{ github.event.inputs.skip_smoke != 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci --include-workspace-root
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Run e2e smoke against deployed URL
+        working-directory: frontend
+        env:
+          E2E_BASE_URL: ${{ vars.FRONTEND_URL || secrets.FRONTEND_URL }}
+        run: npx playwright test --reporter=github
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ needs.resolve-stage.outputs.stage }}
+          path: frontend/playwright-report
+          retention-days: 14

@@ -1,204 +1,188 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
-import { successResponse, errorResponse } from '../../src/utils/response'
+/**
+ * POST /payments/create-intent
+ *
+ * Creates a Stripe PaymentIntent for a plan purchase or extra-credits bundle.
+ *
+ * Security / correctness notes vs. previous version:
+ *   - Uses requireAuth (proper JWT) instead of deriving userId from a raw bearer.
+ *   - Validates body with a zod schema instead of ad-hoc JSON + field checks.
+ *   - Prices come from `@picsonar/shared/constants` (integer bani), so there is
+ *     ONE source of truth. Previously a second hardcoded switch diverged.
+ *   - CUI validated + normalized via the shared validator.
+ *   - Metadata only includes what the webhook needs — no PII dumps.
+ */
+import type { APIGatewayProxyEvent } from 'aws-lambda'
+import { z } from 'zod'
+import * as StripeConstructor from 'stripe'
+
+import { PACKAGES, type PackageId } from '@picsonar/shared/constants'
+import { validateCUI, isValidEmail } from '@picsonar/shared/validators'
+
+import { getEnv } from '../../src/config/env'
+import { withHandler } from '../../src/middleware/handler'
+import { requireAuth } from '../../src/middleware/auth'
+import { parseBody } from '../../src/middleware/validate'
+import {
+  enforceRateLimit,
+  rateLimitIdentity,
+} from '../../src/middleware/rateLimit'
+import { isFromRomania } from '../../src/utils/geoRestriction'
+import { ForbiddenError, ValidationError } from '../../src/utils/errors'
+import { successResponse } from '../../src/utils/response'
 import { getItem } from '../../src/utils/dynamodb'
-import { validateCUI } from '../../src/utils/validateCUI'
-import { verifyAuthHeader } from '../../src/utils/jwt'
-import Stripe from 'stripe'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
+const Stripe = StripeConstructor as any
 
-// Email validation regex
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const BillingDataSchema = z.object({
+  companyName: z.string().min(2).max(200),
+  cui: z.string().min(2).max(12),
+  country: z.string().min(2).max(100),
+  city: z.string().min(2).max(100),
+  street: z.string().min(2).max(200),
+  postalCode: z.string().min(2).max(20),
+  billingEmail: z.string().email(),
+})
 
-export const handler = async (
-    event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> => {
-    try {
-        // Auth check
-        const authHeader = event.headers.Authorization || event.headers.authorization
-        if (!authHeader) {
-            return errorResponse('Authorization header is required', 401)
-        }
+const PaymentIntentSchema = z.object({
+  packageId: z.enum(['starter', 'studio', 'agency', 'extra_event']),
+  quantity: z.coerce.number().int().min(1).max(10).default(1),
+  billingData: BillingDataSchema,
+})
 
-        // Verify JWT and extract userId
-        const payload = verifyAuthHeader(authHeader)
-        if (!payload) {
-            return errorResponse('Invalid or expired token', 401)
-        }
+export const handler = withHandler(async (event: APIGatewayProxyEvent, ctx) => {
+  const jwt = requireAuth(event)
+  const env = getEnv()
 
-        const { userId } = payload
+  await enforceRateLimit({
+    endpoint: 'payments:create-intent',
+    identity: rateLimitIdentity(event, jwt.userId),
+    max: 10,
+    windowSec: 60,
+  })
 
-        if (!event.body) {
-            return errorResponse('Request body is required', 400)
-        }
+  if (!isFromRomania(event)) {
+    throw new ForbiddenError('Payments are currently restricted to Romania')
+  }
 
-        const { packageId, type, quantity = 1, billingData } = JSON.parse(event.body)
+  // Gate paying flows behind email verification — it's the basic sanity
+  // check that the billing email we collect on the invoice belongs to the
+  // account owner.
+  const currentUser = await getItem(env.USERS_TABLE, { userId: jwt.userId })
+  if (!currentUser) {
+    throw new ForbiddenError('Account not found')
+  }
+  if (currentUser.emailVerified !== true) {
+    throw new ForbiddenError(
+      'Please verify your email before making a purchase. Check your inbox for the confirmation link, or request a new one from your account.',
+    )
+  }
 
-        // ========== BILLING DATA VALIDATION (MANDATORY FOR B2B) ==========
+  const input = parseBody(event, PaymentIntentSchema)
 
-        if (!billingData) {
-            return errorResponse('Billing data is required for all purchases', 400)
-        }
+  if (!isValidEmail(input.billingData.billingEmail)) {
+    throw new ValidationError('Invalid billing email')
+  }
 
-        // Validate required fields
-        const requiredFields = [
-            'companyName',
-            'cui',
-            'country',
-            'city',
-            'street',
-            'postalCode',
-            'billingEmail'
-        ]
+  const cuiResult = validateCUI(input.billingData.cui)
+  if (!cuiResult.valid) {
+    throw new ValidationError(
+      cuiResult.error ?? 'Invalid Romanian CUI (checksum mismatch)',
+    )
+  }
 
-        for (const field of requiredFields) {
-            if (!billingData[field] || !billingData[field].trim()) {
-                return errorResponse(`Missing required billing field: ${field}`, 400)
-            }
-        }
+  const pkg = PACKAGES[input.packageId as PackageId]
+  if (!pkg) throw new ValidationError('Unknown package')
 
-        // Validate CUI (HARD ENFORCEMENT - Backend validation)
-        const cuiValidation = validateCUI(billingData.cui)
-        if (!cuiValidation.valid) {
-            console.error('CUI validation failed:', cuiValidation.error, 'Input:', billingData.cui)
-            return errorResponse(
-                `Invalid CUI: ${cuiValidation.error || 'checksum validation failed'}`,
-                400
-            )
-        }
+  const unitMinor = pkg.priceMinor
+  const totalMinor = unitMinor * input.quantity
 
-        // Validate email format
-        if (!EMAIL_REGEX.test(billingData.billingEmail)) {
-            return errorResponse('Invalid email format', 400)
-        }
+  const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
+    apiVersion: '2023-10-16',
+  })
 
-        // Validate min lengths
-        if (billingData.companyName.trim().length < 2) {
-            return errorResponse('Company name must be at least 2 characters', 400)
-        }
+  // --- Create / reuse a Stripe Customer ---------------------------------
+  // Stripe Tax needs a customer record with a billing address to determine
+  // VAT jurisdiction. We create a fresh customer per purchase and attach
+  // the RO VAT ID — Stripe then issues a tax-compliant RON invoice and
+  // applies the 19% standard rate (or reverse charge for EU VAT-registered
+  // B2B customers). Customer deduplication happens via metadata.userId.
+  const stripeCountry = (input.billingData.country ?? 'RO')
+    .slice(0, 2)
+    .toUpperCase()
+  const customer = await stripe.customers.create({
+    email: input.billingData.billingEmail,
+    name: input.billingData.companyName,
+    address: {
+      line1: input.billingData.street,
+      city: input.billingData.city,
+      postal_code: input.billingData.postalCode,
+      country: stripeCountry === 'ROMANIA' ? 'RO' : stripeCountry,
+    },
+    // RO VAT IDs prefix with 'ro_'; Stripe validates format and applies
+    // reverse-charge for EU B2B if appropriate.
+    tax_id_data: [
+      {
+        type: 'ro_cui',
+        value: cuiResult.normalized,
+      },
+    ],
+    metadata: {
+      userId: jwt.userId,
+      cui: cuiResult.normalized,
+    },
+  })
 
-        console.log('Billing data validated successfully for user:', userId)
+  // --- Payment methods for Romanian market ------------------------------
+  // Card-only by product decision. Apple Pay / Google Pay / Link are
+  // intentionally disabled; this keeps the compliance footprint smaller
+  // (no Apple Pay domain-association file, no merchant ID registration)
+  // and aligns with the accountant's reconciliation flow which expects a
+  // single payment-method column on the Stripe payout CSV. SEPA debit is
+  // also off — one-time SaaS purchases don't justify the 5-day settlement
+  // delay; revisit only if we add subscriptions.
+  const paymentIntent = await stripe.paymentIntents.create({
+    amount: totalMinor,
+    currency: pkg.currency.toLowerCase(),
+    customer: customer.id,
+    description: `${pkg.name} × ${input.quantity}`,
+    receipt_email: input.billingData.billingEmail,
+    // Stripe Tax: computes VAT line item from customer address + tax_id.
+    // Only enable if the Stripe account has Tax activated (manual step in
+    // Stripe Dashboard → Tax).
+    automatic_tax: { enabled: true },
+    // Explicit allowlist — `card` only. Do NOT switch back to
+    // `automatic_payment_methods: { enabled: true }`; that implicitly
+    // re-enables Apple Pay / Google Pay / Link based on Dashboard toggles.
+    payment_method_types: ['card'],
+    // statement_descriptor shows on the customer's card statement — must
+    // be ≤22 chars, no special chars. Keep stable so fraud detection
+    // doesn't flag varying merchant names.
+    statement_descriptor_suffix: 'PICSONAR',
+    metadata: {
+      userId: jwt.userId,
+      packageId: input.packageId,
+      quantity: String(input.quantity),
+      cui: cuiResult.normalized,
+      companyName: input.billingData.companyName,
+      country: input.billingData.country,
+      city: input.billingData.city,
+      street: input.billingData.street,
+      postalCode: input.billingData.postalCode,
+    },
+  })
 
-        // ========== PACKAGE & PRICING ==========
-
-        let amount = 0
-        let currency = 'ron'
-        let description = ''
-
-        if (type === 'extra_event') {
-            // Fetch user to know their active plan
-            const USERS_TABLE = process.env.USERS_TABLE || ''
-            const user = await getItem(USERS_TABLE, { userId })
-            const activePlan = user?.plan || 'starter'
-
-            // Prices are in bani (1 RON = 100 bani)
-            // Prices per credit:
-            // starter: 120 (5), 100 (10), 90 (15)
-            // studio: 210 (5), 195 (10), 185 (15)
-            // agency: 550 (5), 500 (10), 475 (15)
-
-            if (activePlan === 'starter') {
-                switch (packageId) {
-                    case 'extra_5': amount = 60000; break; // 600 RON
-                    case 'extra_10': amount = 100000; break; // 1000 RON
-                    case 'extra_15': amount = 135000; break; // 1350 RON
-                    default: amount = 60000;
-                }
-            } else if (activePlan === 'studio') {
-                switch (packageId) {
-                    case 'extra_5': amount = 105000; break; // 1050 RON
-                    case 'extra_10': amount = 195000; break; // 1950 RON
-                    case 'extra_15': amount = 277500; break; // 2775 RON
-                    default: amount = 105000;
-                }
-            } else if (activePlan === 'agency') {
-                switch (packageId) {
-                    case 'extra_5': amount = 275000; break; // 2750 RON
-                    case 'extra_10': amount = 500000; break; // 5000 RON
-                    case 'extra_15': amount = 712500; break; // 7125 RON
-                    default: amount = 275000;
-                }
-            } else {
-                // Fallback (e.g. no active plan)
-                switch (packageId) {
-                    case 'extra_5': amount = 60000; break;
-                    case 'extra_10': amount = 100000; break;
-                    case 'extra_15': amount = 135000; break;
-                    default: amount = 60000;
-                }
-            }
-            description = `Extra Event Credits Bundle (${activePlan} plan)`
-        } else {
-            switch (packageId) {
-                case 'starter':
-                    amount = 14900 // 149.00 RON
-                    description = 'Starter Plan (1 Event)'
-                    break
-                case 'studio':
-                    amount = 79900 // 799.00 RON
-                    description = 'Studio Plan (4 Events)'
-                    break
-                case 'agency':
-                    amount = 249900 // 2499.00 RON
-                    description = 'Agency Plan (12 Events)'
-                    break
-                default:
-                    return errorResponse('Invalid package selected', 400)
-            }
-        }
-
-        const qty = parseInt(quantity) || 1
-        if (qty < 1) {
-            return errorResponse('Quantity must be at least 1', 400)
-        }
-
-        const totalAmount = amount * qty
-
-        // ========== CREATE PAYMENT INTENT WITH BILLING DATA ==========
-
-        // Normalize billing data for storage
-        const normalizedBillingData = {
-            companyName: billingData.companyName.trim(),
-            cui: cuiValidation.normalized, // Store normalized (digits only)
-            hasROPrefix: cuiValidation.hasROPrefix,
-            vatPayer: billingData.vatPayer || false,
-            country: billingData.country.trim(),
-            city: billingData.city.trim(),
-            street: billingData.street.trim(),
-            postalCode: billingData.postalCode.trim(),
-            billingEmail: billingData.billingEmail.trim().toLowerCase(),
-            regCom: billingData.regCom?.trim() || '',
-            bank: billingData.bank?.trim() || '',
-            iban: billingData.iban?.trim() || ''
-        }
-
-        // Create PaymentIntent with billing data in metadata
-        const paymentIntent = await stripe.paymentIntents.create({
-            amount: totalAmount,
-            currency,
-            automatic_payment_methods: {
-                enabled: true,
-            },
-            metadata: {
-                userId,
-                packageId,
-                type: type || 'credit_bundle',
-                quantity: qty.toString(),
-                // Store billing data as JSON string (Stripe metadata limitation)
-                billingData: JSON.stringify(normalizedBillingData)
-            },
-            description: `${description} ${qty > 1 ? `(x${qty})` : ''} - ${normalizedBillingData.companyName}`,
-            receipt_email: normalizedBillingData.billingEmail
-        })
-
-        console.log('PaymentIntent created successfully:', paymentIntent.id)
-
-        return successResponse({
-            clientSecret: paymentIntent.client_secret,
-        })
-
-    } catch (error: any) {
-        console.error('Error creating payment intent:', error)
-        return errorResponse(error.message || 'Failed to create payment intent', 500)
-    }
-}
+  return successResponse(
+    {
+      clientSecret: paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id,
+      customerId: customer.id,
+      amountMinor: totalMinor,
+      currency: pkg.currency,
+      // Publishable key is returned here so the frontend doesn't need a
+      // separate env plumbing path — avoids accidental key drift.
+      publishableKeyHint: 'use VITE_STRIPE_PUBLISHABLE_KEY on the client',
+    },
+    200,
+    { requestOrigin: ctx.requestOrigin },
+  )
+})

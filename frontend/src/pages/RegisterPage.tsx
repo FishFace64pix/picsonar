@@ -7,6 +7,7 @@ import Footer from '../components/Footer'
 export default function RegisterPage() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -16,21 +17,39 @@ export default function RegisterPage() {
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [privacyAccepted, setPrivacyAccepted] = useState(false)
   const [dpaAccepted, setDpaAccepted] = useState(false)
+  // OUG 34/2014 — 14-day right of withdrawal is waived only with an
+  // explicit opt-in here. Without this flag, the backend refuses registration.
+  const [immediateDeliveryConsent, setImmediateDeliveryConsent] =
+    useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!termsAccepted || !privacyAccepted || !dpaAccepted) {
+    if (
+      !termsAccepted ||
+      !privacyAccepted ||
+      !dpaAccepted ||
+      !immediateDeliveryConsent
+    ) {
       setError('Please accept all legal documents to continue.')
       return
     }
+
+    // Romanian phone validation check
+    const phoneRegex = /^(\+40|0)7[0-9]{8}$/
+    if (!phoneRegex.test(phone)) {
+      setError('Please enter a valid Romanian phone number (e.g. 07xx xxx xxx)')
+      return
+    }
+
     setError('')
     setLoading(true)
 
     try {
-      await register(email, password, name, {
+      await register(email, password, name, phone, {
         termsAccepted: true,
         privacyAccepted: true,
-        dpaAccepted: true
+        dpaAccepted: true,
+        immediateDeliveryConsent: true,
       })
       navigate('/dashboard')
     } catch (err: any) {
@@ -40,7 +59,15 @@ export default function RegisterPage() {
     }
   }
 
-  const isFormValid = name && email && password.length >= 6 && termsAccepted && privacyAccepted && dpaAccepted;
+  const isFormValid =
+    name &&
+    email &&
+    phone &&
+    password.length >= 6 &&
+    termsAccepted &&
+    privacyAccepted &&
+    dpaAccepted &&
+    immediateDeliveryConsent
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -91,6 +118,32 @@ export default function RegisterPage() {
 
               <div>
                 <label className="block text-xs font-black text-gray-500 mb-2 uppercase tracking-widest">
+                  Phone Number (Romania Only)
+                </label>
+                <div className="flex gap-2">
+                  <div className="bg-white/5 border border-white/10 rounded-xl px-3 py-3 text-gray-400 font-bold flex items-center">
+                    +40
+                  </div>
+                  <input
+                    type="tel"
+                    value={phone.startsWith('+40') ? phone.slice(3) : phone.startsWith('0') ? phone.slice(1) : phone}
+                    onChange={(e) => {
+                       const val = e.target.value.replace(/\D/g, '').slice(0, 9);
+                       setPhone('0' + val);
+                    }}
+                    required
+                    className="flex-grow bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary-500 transition-colors"
+                    placeholder="722 123 456"
+                  />
+                </div>
+                <p className="text-[10px] text-primary-500 mt-2 font-bold uppercase tracking-tighter flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-primary-500 rounded-full animate-pulse"></span>
+                  Service exclusively available in Romania
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-black text-gray-500 mb-2 uppercase tracking-widest">
                   Password
                 </label>
                 <input
@@ -134,6 +187,38 @@ export default function RegisterPage() {
                   className="mt-1 w-4 h-4 rounded border-white/10 bg-white/5 text-primary-600 focus:ring-primary-500 focus:ring-offset-slate-900"
                 />
                 <span className="text-sm text-gray-400 leading-tight group-hover:text-gray-300"> I accept the <Link to="/dpa" className="text-primary-400 underline font-bold">Data Processing Addendum (DPA)</Link> as a Data Controller</span>
+              </label>
+
+              {/*
+                Consumer Rights — Immediate Delivery Consent (OUG 34/2014).
+                The label below is the ANPC-compliant wording that waives
+                the 14-day right of withdrawal; copy should not be softened
+                without legal review. Backend rejects registration if this
+                box is unchecked.
+              */}
+              <label className="flex items-start gap-4 group cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={immediateDeliveryConsent}
+                  onChange={(e) =>
+                    setImmediateDeliveryConsent(e.target.checked)
+                  }
+                  className="mt-1 w-4 h-4 rounded border-white/10 bg-white/5 text-primary-600 focus:ring-primary-500 focus:ring-offset-slate-900"
+                />
+                <span className="text-sm text-gray-400 leading-tight group-hover:text-gray-300">
+                  I consent to immediate service delivery and understand
+                  that, per OUG 34/2014, I therefore{' '}
+                  <strong className="text-gray-200">
+                    waive the 14-day right of withdrawal
+                  </strong>{' '}
+                  for digital content.{' '}
+                  <Link
+                    to="/consumer-rights"
+                    className="text-primary-400 underline font-bold"
+                  >
+                    Details
+                  </Link>
+                </span>
               </label>
             </div>
 

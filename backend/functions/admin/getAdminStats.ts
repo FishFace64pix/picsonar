@@ -1,5 +1,6 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 import { successResponse, errorResponse } from '../../src/utils/response'
+import { verifyAuthHeader } from '../../src/utils/jwt'
 import { scanTable } from '../../src/utils/dynamodb'
 
 const USERS_TABLE = process.env.USERS_TABLE!
@@ -10,6 +11,11 @@ export const handler = async (
     event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
     try {
+        const authHeader = event.headers.Authorization || event.headers.authorization;
+        if (!authHeader) return errorResponse('Authorization header is required', 401);
+        const payload = verifyAuthHeader(authHeader);
+        if (!payload || payload.role !== 'admin') return errorResponse('Forbidden: Admin access required', 403);
+
         // In a real production app with millions of records, SCAN is bad.
         // Ideally we should use the SystemStatsTable to increment counters.
         // For now (MVP/Startup scale), scanning is acceptable and ensures 100% accuracy.

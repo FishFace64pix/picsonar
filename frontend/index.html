@@ -5,6 +5,35 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!--
+      Content Security Policy.
+      - 'self' for scripts + styles; the Vite build inlines small styles so
+        'unsafe-inline' is required for <style> (not script).
+      - https://js.stripe.com and https://m.stripe.network: Stripe Elements
+      - https://www.google.com / gstatic: Google reCAPTCHA if wired later
+      - img-src data: needed for camera-capture preview blobs.
+      - connect-src: the API (wildcard for execute-api + our custom domain)
+        plus Stripe for 3DS challenges.
+      NOTE: meta CSP has limitations — report-only + frame-ancestors do not
+      work via meta. The canonical CSP lives at CloudFront Response Headers
+      Policy (see docs/runbooks/edge-headers.md). This meta is a backup for
+      environments served directly (dev, S3 without CloudFront).
+    -->
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      script-src 'self' https://js.stripe.com https://m.stripe.network;
+      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+      img-src 'self' data: blob: https://*.cloudfront.net https://*.amazonaws.com;
+      font-src 'self' data: https://fonts.gstatic.com;
+      connect-src 'self' http://localhost:* ws://localhost:* https://*.execute-api.eu-central-1.amazonaws.com https://api.picsonar.ro https://api.picsonar.com https://api.stripe.com https://m.stripe.network;
+      frame-src https://js.stripe.com https://hooks.stripe.com;
+      media-src 'self' blob:;
+      object-src 'none';
+      base-uri 'self';
+      form-action 'self';
+    " />
+
     <title>PicSonar - AI Event Photos</title>
 
     <!-- Primary Meta Tags -->

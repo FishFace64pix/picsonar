@@ -180,12 +180,11 @@ export const BillingDataForm: React.FC<BillingDataFormProps> = ({
                         {t('billingForm.country')} <span className="text-red-500">*</span>
                     </label>
                     <select
-                        value={formData.country}
-                        onChange={(e) => handleChange('country', e.target.value)}
-                        className="input-field appearance-none"
+                        value="Romania"
+                        disabled
+                        className="input-field appearance-none bg-slate-900/50 cursor-not-allowed opacity-50"
                     >
-                        <option value="Romania" className="bg-slate-900">{t('billingForm.romania')}</option>
-                        <option value="Other" className="bg-slate-900">{t('billingForm.otherCountry')}</option>
+                        <option value="Romania">{t('billingForm.romania')}</option>
                     </select>
                 </div>
 

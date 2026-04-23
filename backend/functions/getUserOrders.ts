@@ -1,38 +1,43 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
-import { successResponse, errorResponse } from '../src/utils/response'
-import { queryItems } from '../src/utils/dynamodb'
+/**
+ * GET /users/me/orders
+ *
+ * Lists orders owned by the authenticated user. Paginated.
+ * Same IDOR fix as getEvents: derive userId from the verified JWT, never from
+ * the raw bearer string.
+ */
+import type { APIGatewayProxyEvent } from 'aws-lambda'
+import { z } from 'zod'
 
-const ORDERS_TABLE = process.env.ORDERS_TABLE || ''
+import { getEnv } from '../src/config/env'
+import { withHandler } from '../src/middleware/handler'
+import { requireAuth } from '../src/middleware/auth'
+import { parseQuery } from '../src/middleware/validate'
+import { queryItemsPage } from '../src/utils/dynamodb'
+import { successResponse } from '../src/utils/response'
 
-export const handler = async (
-    event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> => {
-    try {
-        const authHeader = event.headers.Authorization || event.headers.authorization
-        if (!authHeader) {
-            return errorResponse('Authorization header is required', 401)
-        }
+const QuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  cursor: z.string().max(2048).optional(),
+})
 
-        const token = authHeader.replace('Bearer ', '')
-        const [userId] = token.split(':')
+export const handler = withHandler(async (event: APIGatewayProxyEvent, ctx) => {
+  const jwt = requireAuth(event)
+  const { limit, cursor } = parseQuery(event, QuerySchema)
+  const env = getEnv()
 
-        if (!userId) {
-            return errorResponse('Invalid token', 401)
-        }
+  const { items, nextCursor } = await queryItemsPage({
+    tableName: env.ORDERS_TABLE,
+    indexName: 'userId-index',
+    keyConditionExpression: 'userId = :userId',
+    expressionAttributeValues: { ':userId': jwt.userId },
+    limit,
+    cursor,
+    scanIndexForward: false,
+  })
 
-        const orders = await queryItems(
-            ORDERS_TABLE,
-            'userId = :userId',
-            { ':userId': userId },
-            'userId-index'
-        )
-
-        // Sort by createdAt descending
-        orders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-
-        return successResponse(orders)
-    } catch (error: any) {
-        console.error('Error getting user orders:', error)
-        return errorResponse(error.message || 'Failed to get user orders', 500)
-    }
-}
+  return successResponse(
+    { orders: items, nextCursor },
+    200,
+    { requestOrigin: ctx.requestOrigin },
+  )
+})

@@ -1,18 +1,35 @@
 {
+    "_comment": "S3 bucket CORS for direct browser uploads via presigned URLs. AllowedOrigins MUST be the exact frontend origins — never '*' in prod. Apply with: aws s3api put-bucket-cors --bucket <bucket> --cors-configuration file://cors.json (run once per S3 bucket: raw-photos, face-index, qr-codes, invoices). For local dev, http://localhost:5173 is included.",
     "CORSRules": [
         {
             "AllowedHeaders": [
-                "*"
+                "Authorization",
+                "Content-Type",
+                "Content-MD5",
+                "x-amz-content-sha256",
+                "x-amz-date",
+                "x-amz-acl",
+                "x-amz-meta-*"
             ],
             "AllowedMethods": [
                 "GET",
                 "PUT",
                 "POST",
-                "HEAD",
-                "DELETE"
+                "HEAD"
             ],
             "AllowedOrigins": [
-                "*"
+                "http://localhost:5173",
+                "https://picsonar.com",
+                "https://www.picsonar.com",
+                "https://app.picsonar.com",
+                "https://picsonar.ro",
+                "https://www.picsonar.ro",
+                "https://app.picsonar.ro"
+            ],
+            "ExposeHeaders": [
+                "ETag",
+                "x-amz-request-id",
+                "x-amz-version-id"
             ],
             "MaxAgeSeconds": 3000
         }

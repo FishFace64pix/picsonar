@@ -23,8 +23,8 @@ const Navbar: React.FC<NavbarProps> = ({ customLogo }) => {
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
-    const handleLogout = () => {
-        logout();
+    const handleLogout = async () => {
+        await logout();
         navigate('/');
     };
 

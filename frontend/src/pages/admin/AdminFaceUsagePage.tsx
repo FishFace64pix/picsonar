@@ -26,6 +26,14 @@ export default function AdminFaceUsagePage() {
     // Let's assume an arbitrary cost calculation or just show counts.
     const estimatedCost = (totalFaces / 1000) * 1.0
 
+    if (loading) {
+        return (
+            <AdminLayout>
+                <div className="p-8 text-gray-400">Loading usage data...</div>
+            </AdminLayout>
+        )
+    }
+
     return (
         <AdminLayout>
             <h1 className="text-3xl font-bold text-white mb-2">Face Recognition Usage</h1>

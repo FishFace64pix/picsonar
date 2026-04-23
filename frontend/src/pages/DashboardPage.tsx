@@ -84,14 +84,11 @@ export default function DashboardPage() {
   }
 
   const handleMockAddCredits = () => {
-    if (user) {
-      const updatedUser = { ...user, eventCredits: (user.eventCredits || 0) + 5 }
-      localStorage.setItem('user', JSON.stringify(updatedUser))
-      // Force reload or update auth context?
-      // Since context reads from state, we might need a context helper.
-      // For now, reload is easiest for mock.
-      window.location.reload()
-    }
+    // Mock credit-add is a dev-only affordance. With localStorage persistence
+    // removed, there is no cross-refresh mock mutation anymore. In dev mode
+    // the AuthContext owns the user state; we simply reload to pick up a
+    // fresh /auth/me response from the mock backend.
+    window.location.reload()
   }
 
   if (authLoading) {

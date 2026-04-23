@@ -1,5 +1,6 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 import { successResponse, errorResponse } from '../../src/utils/response'
+import { verifyAuthHeader } from '../../src/utils/jwt'
 import { getItem } from '../../src/utils/dynamodb'
 
 const SYSTEM_STATS_TABLE = process.env.SYSTEM_STATS_TABLE!
@@ -9,6 +10,11 @@ export const handler = async (
     event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
     try {
+        const authHeader = event.headers.Authorization || event.headers.authorization;
+        if (!authHeader) return errorResponse('Authorization header is required', 401);
+        const payload = verifyAuthHeader(authHeader);
+        if (!payload || payload.role !== 'admin') return errorResponse('Forbidden: Admin access required', 403);
+
         const settings = await getItem(SYSTEM_STATS_TABLE, { statsId: SETTINGS_KEY })
 
         // Return defaults if not set

@@ -1,60 +1,68 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
-import { successResponse, errorResponse } from '../../src/utils/response'
+/**
+ * POST /auth/reset-password
+ *
+ * - Validates body against ResetPasswordSchema (token + new password complexity)
+ * - Looks up user via resetToken-index
+ * - Expiry check
+ * - Re-hashes with bcrypt + clears token atomically (ConditionExpression
+ *   prevents a race where another reset succeeded first)
+ * - IP-based rate limit
+ */
+import type { APIGatewayProxyEvent } from 'aws-lambda'
+
+import { ResetPasswordSchema } from '@picsonar/shared/schemas'
+
+import { getEnv } from '../../src/config/env'
+import { withHandler } from '../../src/middleware/handler'
+import { parseBody } from '../../src/middleware/validate'
+import { enforceRateLimit, rateLimitIdentity } from '../../src/middleware/rateLimit'
 import { queryItems, updateItem } from '../../src/utils/dynamodb'
-import * as crypto from 'crypto'
+import { AuthError } from '../../src/utils/errors'
+import { hashPassword } from '../../src/utils/password'
+import { successResponse } from '../../src/utils/response'
 
-const USERS_TABLE = process.env.USERS_TABLE || ''
+export const handler = withHandler(async (event: APIGatewayProxyEvent, ctx) => {
+  const env = getEnv()
 
-export const handler = async (
-    event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> => {
-    try {
-        if (!event.body) {
-            return errorResponse('Request body is required', 400)
-        }
+  await enforceRateLimit({
+    endpoint: 'auth:reset-password',
+    identity: rateLimitIdentity(event),
+    max: 5,
+    windowSec: 60,
+  })
 
-        const { token, newPassword } = JSON.parse(event.body)
+  const input = parseBody(event, ResetPasswordSchema)
 
-        if (!token || !newPassword) {
-            return errorResponse('Token and new password are required', 400)
-        }
+  const users = await queryItems(
+    env.USERS_TABLE,
+    'resetToken = :token',
+    { ':token': input.token },
+    'resetToken-index',
+  )
+  if (users.length === 0) {
+    throw new AuthError('Invalid or expired reset token')
+  }
 
-        // 1. Find user by reset token
-        // Note: Since we don't have a resetToken-index, we iterate or query if we can.
-        // Ideally we should have an index. Let's assume we do a scan or we pass the email in frontend to query.
-        // For now, let's scan or assume we have the index 'resetToken-index'.
-        const users = await queryItems(
-            USERS_TABLE,
-            'resetToken = :token',
-            { ':token': token },
-            'resetToken-index'
-        )
+  const user = users[0]
+  const now = Date.now()
+  if (!user.resetTokenExpiry || Number(user.resetTokenExpiry) < now) {
+    throw new AuthError('Invalid or expired reset token')
+  }
 
-        if (users.length === 0) {
-            return errorResponse('Invalid or expired token', 400)
-        }
+  const newHash = await hashPassword(input.newPassword)
 
-        const user = users[0]
+  await updateItem(
+    env.USERS_TABLE,
+    { userId: user.userId },
+    'SET #pw = :pw REMOVE resetToken, resetTokenExpiry',
+    { ':pw': newHash, ':token': input.token },
+    { '#pw': 'password' },
+    'resetToken = :token',
+  )
 
-        // 2. Check Expiry
-        if (user.resetTokenExpiry < Date.now()) {
-            return errorResponse('Token has expired', 400)
-        }
-
-        // 3. Hash New Password
-        const passwordHash = crypto.createHash('sha256').update(newPassword).digest('hex')
-
-        // 4. Update Password and Clear Token
-        await updateItem(
-            USERS_TABLE,
-            { userId: user.userId },
-            'SET password = :pass, resetToken = :null, resetTokenExpiry = :null',
-            { ':pass': passwordHash, ':null': null }
-        )
-
-        return successResponse({ message: 'Password has been reset successfully.' }, 200)
-    } catch (error: any) {
-        console.error('Error in resetPassword:', error)
-        return errorResponse(error.message || 'Failed to reset password', 500)
-    }
-}
+  return successResponse(
+    { message: 'Password has been reset successfully' },
+    200,
+    { requestOrigin: ctx.requestOrigin },
+  )
+})
