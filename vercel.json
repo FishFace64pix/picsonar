@@ -1,0 +1,9 @@
+{
+  "buildCommand": "npm run build --workspace=@picsonar/shared && npm run build --workspace=eventfacematch-frontend",
+  "outputDirectory": "frontend/dist",
+  "installCommand": "npm install",
+  "framework": null,
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
