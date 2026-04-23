@@ -19,7 +19,7 @@ import {
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
-  'https://yepn81gf76.execute-api.eu-central-1.amazonaws.com/dev'
+  'https://iku0303aa5.execute-api.eu-central-1.amazonaws.com/prod'
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
