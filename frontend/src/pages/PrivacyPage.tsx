@@ -43,7 +43,9 @@ const PrivacyPage: React.FC = () => {
                             <div className="grid md:grid-cols-2 gap-6 mt-6">
                                 <div className="p-6 bg-white/5 rounded-2xl border border-white/10">
                                     <h3 className="text-white font-bold mb-3 uppercase tracking-widest text-xs">Data Processor</h3>
-                                    <p className="text-sm"><strong>Company:</strong> PicSonar SRL</p>
+                                    <p className="text-sm"><strong>Company:</strong> KAMBYTE SRL</p>
+                                    <p className="text-sm"><strong>CUI:</strong> RO54035709</p>
+                                    <p className="text-sm"><strong>Reg. Com.:</strong> J2026012033003</p>
                                     <p className="text-sm"><strong>Email:</strong> privacy@picsonar.com</p>
                                     <p className="text-sm"><strong>DPO:</strong> dpo@picsonar.com</p>
                                 </div>

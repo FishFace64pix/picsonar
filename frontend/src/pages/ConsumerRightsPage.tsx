@@ -39,8 +39,8 @@ const ConsumerRightsPage: React.FC = () => {
                 1. Cine suntem
               </h2>
               <p>
-                PicSonar SRL este operatorul serviciului „PicSonar". Datele de
-                identificare (CUI, sediu, ONRC, contact) se regăsesc în
+                KAMBYTE SRL (CUI: RO54035709, Nr. Reg. Com.: J2026012033003) este operatorul serviciului „PicSonar". Datele de
+                identificare complete se regăsesc în
                 subsolul oricărei pagini și pe{' '}
                 <a href="/contact" className="underline hover:text-primary-400">
                   pagina de contact

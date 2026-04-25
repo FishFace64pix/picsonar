@@ -74,7 +74,7 @@ const Footer: React.FC = () => {
                             </a>
                         </div>
                         <div className="text-gray-600">
-                            Operator date: PicSonar SRL • CUI: RO&lt;TODO&gt; • J&lt;TODO&gt;
+                            Operator date: KAMBYTE SRL • CUI: RO54035709 • J2026012033003
                         </div>
                     </div>
                 </div>
