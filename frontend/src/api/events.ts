@@ -183,7 +183,7 @@ export const eventsApi = {
       return mockStore.faces.filter(f => f.eventId === eventId)
     }
     const response = await apiClient.get(`/event/${eventId}/faces`)
-    return response.data
+    return response.data.faces ?? response.data
   },
 
 
@@ -235,7 +235,7 @@ export const eventsApi = {
     }
     // Real API implementation
     const response = await apiClient.get(`/event/${eventId}/photos`)
-    return response.data
+    return response.data.photos ?? response.data
   },
 
   deletePhoto: async (eventId: string, photoId: string): Promise<void> => {
