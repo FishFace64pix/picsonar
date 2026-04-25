@@ -121,7 +121,7 @@ export const handler = withHandler(async (event: APIGatewayProxyEvent, ctx) => {
     // reverse-charge for EU B2B if appropriate.
     tax_id_data: [
       {
-        type: 'ro_cui',
+        type: 'ro_tin',
         value: cuiResult.normalized,
       },
     ],
