@@ -75,7 +75,7 @@ export default function DashboardPage() {
       setEventName('')
       navigate(`/event/${newEvent.eventId}`)
     } catch (error: any) {
-      const message = error.response?.data?.error || t('dashboard.messages.createFailed')
+      const message = error.response?.data?.error?.message || t('dashboard.messages.createFailed')
       console.error('Failed to create event:', error)
       alert(message)
     } finally {

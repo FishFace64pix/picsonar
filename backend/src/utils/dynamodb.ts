@@ -20,7 +20,7 @@ export async function putItem(
 ): Promise<void> {
   const params: any = {
     TableName: tableName,
-    Item: marshall(item),
+    Item: marshall(item, { removeUndefinedValues: true }),
   }
   if (conditionExpression) params.ConditionExpression = conditionExpression
   if (expressionAttributeNames) params.ExpressionAttributeNames = expressionAttributeNames
