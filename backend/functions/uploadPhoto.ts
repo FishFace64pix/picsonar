@@ -84,7 +84,7 @@ export const handler = withHandler(async (event: APIGatewayProxyEvent, ctx) => {
       'SET totalPhotos = if_not_exists(totalPhotos, :zero) + :one',
       { ':one': 1, ':zero': 0, ':max': photoLimit },
       undefined,
-      'if_not_exists(totalPhotos, :zero) < :max',
+      'attribute_not_exists(totalPhotos) OR totalPhotos < :max',
     )
   } catch (err: any) {
     if (err?.name === 'ConditionalCheckFailedException') {
