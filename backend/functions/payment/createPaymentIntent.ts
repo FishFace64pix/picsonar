@@ -117,14 +117,6 @@ export const handler = withHandler(async (event: APIGatewayProxyEvent, ctx) => {
       postal_code: input.billingData.postalCode,
       country: stripeCountry === 'ROMANIA' ? 'RO' : stripeCountry,
     },
-    // RO VAT IDs prefix with 'ro_'; Stripe validates format and applies
-    // reverse-charge for EU B2B if appropriate.
-    tax_id_data: [
-      {
-        type: 'ro_tin',
-        value: cuiResult.normalized,
-      },
-    ],
     metadata: {
       userId: jwt.userId,
       cui: cuiResult.normalized,
@@ -145,10 +137,6 @@ export const handler = withHandler(async (event: APIGatewayProxyEvent, ctx) => {
     customer: customer.id,
     description: `${pkg.name} × ${input.quantity}`,
     receipt_email: input.billingData.billingEmail,
-    // Stripe Tax: computes VAT line item from customer address + tax_id.
-    // Only enable if the Stripe account has Tax activated (manual step in
-    // Stripe Dashboard → Tax).
-    automatic_tax: { enabled: true },
     // Explicit allowlist — `card` only. Do NOT switch back to
     // `automatic_payment_methods: { enabled: true }`; that implicitly
     // re-enables Apple Pay / Google Pay / Link based on Dashboard toggles.
