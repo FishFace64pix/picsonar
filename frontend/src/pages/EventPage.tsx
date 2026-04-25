@@ -253,6 +253,31 @@ export default function EventPage() {
                   </a>
                 </div>
               </div>
+
+              {/* Guest Sharing Link Panel */}
+              <div className="glass-panel p-6 border-primary-500/10">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 bg-primary-500/10 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
+                  </div>
+                  <h2 className="text-lg font-bold text-white uppercase tracking-tight">Guest Link</h2>
+                </div>
+                <p className="text-xs text-gray-400 mb-3">Share this link so guests can find their photos.</p>
+                <div className="bg-white/5 px-3 py-2 rounded-lg text-xs text-primary-300 font-mono break-all border border-white/10 mb-3">
+                  {window.location.origin}/guest/{eventId}
+                </div>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/guest/${eventId}`)
+                    alert('Guest link copied!')
+                  }}
+                  className="w-full bg-primary-600 hover:bg-primary-500 text-white py-2 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>
+                  Copy Link
+                </button>
+              </div>
+
             </div>
           </div>
 
