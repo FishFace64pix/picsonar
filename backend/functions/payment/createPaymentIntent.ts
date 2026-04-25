@@ -13,7 +13,7 @@
  */
 import type { APIGatewayProxyEvent } from 'aws-lambda'
 import { z } from 'zod'
-import * as StripeConstructor from 'stripe'
+import Stripe from 'stripe'
 
 import { PACKAGES, type PackageId } from '@picsonar/shared/constants'
 import { validateCUI, isValidEmail } from '@picsonar/shared/validators'
@@ -31,7 +31,6 @@ import { ForbiddenError, ValidationError } from '../../src/utils/errors'
 import { successResponse } from '../../src/utils/response'
 import { getItem } from '../../src/utils/dynamodb'
 
-const Stripe = StripeConstructor as any
 
 const BillingDataSchema = z.object({
   companyName: z.string().min(2).max(200),

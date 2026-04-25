@@ -1,12 +1,11 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
-import * as StripeConstructor from 'stripe'
+import Stripe from 'stripe'
 import { successResponse, errorResponse } from '../../src/utils/response'
 import { getItem, putItem, updateItem } from '../../src/utils/dynamodb'
 import { verifyAuthHeader } from '../../src/utils/jwt'
 import { getEnv } from '../../src/config/env'
 import { PACKAGES } from '../../src/constants/packages'
 
-const Stripe = StripeConstructor as any
 
 const ORDERS_TABLE = process.env.ORDERS_TABLE || ''
 const USERS_TABLE = process.env.USERS_TABLE || ''

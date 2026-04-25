@@ -25,7 +25,7 @@
  */
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3'
-import * as StripeConstructor from 'stripe'
+import Stripe from 'stripe'
 
 import { getEnv } from '../../src/config/env'
 import { successResponse, errorResponse } from '../../src/utils/response'
@@ -45,7 +45,6 @@ import { getInvoiceEmailTemplate } from '../../src/email/templates/invoiceTempla
 import { getPaymentFailedTemplate } from '../../src/email/templates/paymentFailedTemplate'
 import { logger, emitMetric } from '../../src/utils/logger'
 
-const Stripe = StripeConstructor as any
 
 export const handler = async (
   event: APIGatewayProxyEvent,

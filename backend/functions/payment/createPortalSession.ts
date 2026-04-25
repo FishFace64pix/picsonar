@@ -20,7 +20,7 @@
  */
 import type { APIGatewayProxyEvent } from 'aws-lambda'
 import { z } from 'zod'
-import * as StripeConstructor from 'stripe'
+import Stripe from 'stripe'
 
 import { getEnv } from '../../src/config/env'
 import { withHandler } from '../../src/middleware/handler'
@@ -34,7 +34,6 @@ import { verifyAuthHeader } from '../../src/utils/jwt'
 import { successResponse } from '../../src/utils/response'
 import { logger } from '../../src/utils/logger'
 
-const Stripe = StripeConstructor as any
 
 const PortalSchema = z.object({
   /** Where Stripe should return the browser after the portal session. */

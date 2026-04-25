@@ -18,7 +18,7 @@
  */
 import type { APIGatewayProxyEvent } from 'aws-lambda'
 import { z } from 'zod'
-import * as StripeConstructor from 'stripe'
+import Stripe from 'stripe'
 
 import { PACKAGES, type PackageId } from '@picsonar/shared'
 
@@ -35,7 +35,6 @@ import { ForbiddenError, ValidationError } from '../../src/utils/errors'
 import { successResponse } from '../../src/utils/response'
 import { getItem } from '../../src/utils/dynamodb'
 
-const Stripe = StripeConstructor as any
 
 const CheckoutSessionSchema = z.object({
   packageId: z.enum(['starter', 'studio', 'agency', 'extra_event']),
