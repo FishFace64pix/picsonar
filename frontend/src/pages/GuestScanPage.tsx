@@ -89,9 +89,10 @@ export default function GuestScanPage() {
     setLoading(true)
     setNoMatch(false)
     try {
-      // Convert base64 to File object
-      const res = await fetch(photo)
-      const blob = await res.blob()
+      // Convert base64 data URL to File without fetch (avoids CSP data: URI block)
+      const base64 = photo.split(',')[1]
+      const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0))
+      const blob = new Blob([bytes], { type: 'image/jpeg' })
       const file = new File([blob], 'face.jpg', { type: 'image/jpeg' })
 
       const result = await eventsApi.matchFace(eventId, file)
