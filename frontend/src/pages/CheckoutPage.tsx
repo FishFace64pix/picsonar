@@ -27,6 +27,11 @@ const CheckoutForm = ({ packageId, type, quantity, billingData, onPaymentSuccess
             return
         }
 
+        if (!packageId) {
+            onPaymentError('No package selected. Please go back to the pricing page.')
+            return
+        }
+
         setIsProcessing(true)
 
         try {
@@ -79,7 +84,7 @@ const CheckoutForm = ({ packageId, type, quantity, billingData, onPaymentSuccess
             }
         } catch (err: any) {
             console.error('Payment Error:', err)
-            onPaymentError(err.response?.data?.error || t('checkout.errors.creatingPayment'))
+            onPaymentError(err.response?.data?.error?.message || t('checkout.errors.creatingPayment'))
         } finally {
             setIsProcessing(false)
         }
