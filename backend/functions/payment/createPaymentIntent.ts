@@ -35,10 +35,10 @@ import { getItem } from '../../src/utils/dynamodb'
 const BillingDataSchema = z.object({
   companyName: z.string().min(2).max(200),
   cui: z.string().min(2).max(12),
-  country: z.string().min(2).max(100),
-  city: z.string().min(2).max(100),
-  street: z.string().min(2).max(200),
-  postalCode: z.string().min(2).max(20),
+  country: z.string().min(1).max(100),
+  city: z.string().min(1).max(100),
+  street: z.string().min(1).max(200),
+  postalCode: z.string().min(1).max(20),
   billingEmail: z.string().email(),
 })
 

@@ -89,13 +89,13 @@ function handleError(
         details: err.details,
       })
     } else {
-      console.warn('[AppError]', {
+      console.warn('[AppError]', JSON.stringify({
         traceId: ctx.traceId,
         code: err.code,
         statusCode: err.statusCode,
         message: err.message,
         details: err.details,
-      })
+      }))
     }
     return errorResponse(err.message, err.statusCode, {
       code: err.code,
