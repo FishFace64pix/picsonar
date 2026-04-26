@@ -41,7 +41,7 @@ if (USE_MOCK && mockStore.events.length === 0) {
 }
 
 export const eventsApi = {
-  createEvent: async (eventName: string, userId: string): Promise<Event> => {
+  createEvent: async (eventName: string, userId: string, packageId?: string): Promise<Event> => {
     if (USE_MOCK) {
       await new Promise(resolve => setTimeout(resolve, 500))
       const newEvent: Event = {
@@ -57,7 +57,7 @@ export const eventsApi = {
       saveToStorage('mock_events', mockStore.events)
       return newEvent
     }
-    const response = await apiClient.post('/event', { eventName, userId })
+    const response = await apiClient.post('/event', { eventName, userId, packageId })
     return response.data
   },
 

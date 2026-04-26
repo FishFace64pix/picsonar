@@ -46,24 +46,41 @@ export const handler = withHandler(async (event: APIGatewayProxyEvent, ctx) => {
   const user = await getItem(env.USERS_TABLE, { userId: jwt.userId })
   if (!user) throw new NotFoundError('User not found')
 
+  // Determine which credit slot to deduct from.
+  // If packageId is provided, use the per-package field; otherwise fall back to
+  // the legacy eventCredits pool (for users who purchased before per-package tracking).
+  const packageId = input.packageId as keyof typeof PACKAGES | undefined
   const userPlan: keyof typeof PACKAGES =
     (user.plan as keyof typeof PACKAGES) ?? 'starter'
-  const packageDetails = PACKAGES[userPlan] ?? PACKAGES.starter
+  const resolvedPackageId = packageId ?? userPlan
+  const packageDetails = PACKAGES[resolvedPackageId] ?? PACKAGES.starter
   const photoLimit = packageDetails.limits.photoLimitPerEvent
   const storageMonths = packageDetails.limits.storageMonths
 
   // --- Atomic credit decrement ---
-  // ConditionExpression prevents concurrent requests from both succeeding
-  // when only one credit remains.
+  // Per-package: deduct from credits_{packageId}.
+  // Legacy fallback: deduct from eventCredits (for users without per-package credits).
+  const usePerPackage = packageId !== undefined
   try {
-    await updateItem(
-      env.USERS_TABLE,
-      { userId: jwt.userId },
-      'SET eventCredits = eventCredits - :one',
-      { ':one': 1, ':min': 1 },
-      undefined,
-      'eventCredits >= :min',
-    )
+    if (usePerPackage) {
+      await updateItem(
+        env.USERS_TABLE,
+        { userId: jwt.userId },
+        'SET #credits = #credits - :one',
+        { ':one': 1, ':min': 1 },
+        { '#credits': `credits_${packageId}` },
+        '#credits >= :min',
+      )
+    } else {
+      await updateItem(
+        env.USERS_TABLE,
+        { userId: jwt.userId },
+        'SET eventCredits = eventCredits - :one',
+        { ':one': 1, ':min': 1 },
+        undefined,
+        'eventCredits >= :min',
+      )
+    }
   } catch (err: any) {
     if (err?.name === 'ConditionalCheckFailedException') {
       throw new ForbiddenError(
@@ -90,24 +107,39 @@ export const handler = withHandler(async (event: APIGatewayProxyEvent, ctx) => {
     totalSizeBytes: 0,
     photoLimit,
     storageMonths,
-    planAtCreation: userPlan,
+    planAtCreation: resolvedPackageId,
   }
 
   try {
     await putItem(env.EVENTS_TABLE, newEvent, 'attribute_not_exists(eventId)')
   } catch (err) {
     // Refund the credit — we don't want to double-charge on an infra error.
-    await updateItem(
-      env.USERS_TABLE,
-      { userId: jwt.userId },
-      'SET eventCredits = eventCredits + :one',
-      { ':one': 1 },
-    ).catch((refundErr) =>
-      console.error('[createEvent] CRITICAL: credit refund failed', {
-        userId: jwt.userId,
-        refundErr,
-      }),
-    )
+    if (usePerPackage) {
+      await updateItem(
+        env.USERS_TABLE,
+        { userId: jwt.userId },
+        'SET #credits = #credits + :one',
+        { ':one': 1 },
+        { '#credits': `credits_${packageId}` },
+      ).catch((refundErr) =>
+        console.error('[createEvent] CRITICAL: credit refund failed', {
+          userId: jwt.userId,
+          refundErr,
+        }),
+      )
+    } else {
+      await updateItem(
+        env.USERS_TABLE,
+        { userId: jwt.userId },
+        'SET eventCredits = eventCredits + :one',
+        { ':one': 1 },
+      ).catch((refundErr) =>
+        console.error('[createEvent] CRITICAL: credit refund failed', {
+          userId: jwt.userId,
+          refundErr,
+        }),
+      )
+    }
     throw new AppError('Failed to create event', 500, 'EVENT_CREATE_FAILED')
   }
 

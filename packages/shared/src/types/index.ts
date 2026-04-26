@@ -42,7 +42,13 @@ export interface User {
   phone?: string
   role: UserRole
   subscriptionStatus: SubscriptionStatus
+  /** @deprecated Use credits_* fields for new purchases. Kept for legacy users. */
   eventCredits: number
+  /** Per-package credits — populated for all purchases made after the per-package system launch. */
+  credits_starter?: number
+  credits_studio?: number
+  credits_agency?: number
+  credits_extra_event?: number
   limits?: {
     maxPhotosPerEvent: number
   }

@@ -187,13 +187,17 @@ async function handlePaymentSucceeded(
   await putItem(env.ORDERS_TABLE, order)
 
   // Credit application — best-effort, loud metric on failure.
+  // Credits go into per-package fields (credits_starter, credits_studio, etc.)
+  // so the dashboard can show a breakdown and users can choose which slot to use.
   try {
+    const creditsField = `credits_${packageId}` // e.g. credits_studio
     if (type === 'extra_event') {
       await updateItem(
         env.USERS_TABLE,
         { userId },
-        'set eventCredits = if_not_exists(eventCredits, :zero) + :inc',
+        'set #credits = if_not_exists(#credits, :zero) + :inc',
         { ':zero': 0, ':inc': qty },
+        { '#credits': creditsField },
       )
     } else {
       const pkg = (PACKAGES as any)[packageId]
@@ -202,14 +206,14 @@ async function handlePaymentSucceeded(
         await updateItem(
           env.USERS_TABLE,
           { userId },
-          'set eventCredits = if_not_exists(eventCredits, :zero) + :inc, subscriptionStatus = :status, #p = :plan',
+          'set #credits = if_not_exists(#credits, :zero) + :inc, subscriptionStatus = :status, #p = :plan',
           {
             ':zero': 0,
             ':inc': creditsToAdd,
             ':status': 'active',
             ':plan': packageId,
           },
-          { '#p': 'plan' },
+          { '#credits': creditsField, '#p': 'plan' },
         )
       }
     }
@@ -420,16 +424,15 @@ async function handleChargeRefunded(
         : (pkg?.credits ?? 0) * (existing.quantity ?? 1)
 
     if (creditsToReverse > 0) {
+      const creditsField = `credits_${existing.packageId}`
       try {
         await updateItem(
           env.USERS_TABLE,
           { userId: existing.userId },
-          'set eventCredits = if_not_exists(eventCredits, :zero) - :dec',
+          'set #credits = if_not_exists(#credits, :zero) - :dec',
           { ':zero': 0, ':dec': creditsToReverse },
-          undefined,
-          // Guard so refunds can't drop the balance below zero — we
-          // flag the mismatch as a metric for ops to reconcile.
-          'eventCredits >= :dec',
+          { '#credits': creditsField },
+          '#credits >= :dec',
         )
       } catch (err) {
         log.warn('stripe.webhook.refund_credit_reversal_skipped', {
@@ -665,13 +668,16 @@ async function handleCheckoutSessionCompleted(
   }
 
   // ---- Credit user -------------------------------------------------
+  // Credits go into per-package fields so the dashboard can show a breakdown.
   try {
+    const creditsField = `credits_${packageId}`
     if (packageId === 'extra_event') {
       await updateItem(
         env.USERS_TABLE,
         { userId },
-        'set eventCredits = if_not_exists(eventCredits, :zero) + :inc',
+        'set #credits = if_not_exists(#credits, :zero) + :inc',
         { ':zero': 0, ':inc': quantity },
+        { '#credits': creditsField },
       )
     } else {
       const pkg = (PACKAGES as any)[packageId]
@@ -680,9 +686,9 @@ async function handleCheckoutSessionCompleted(
         await updateItem(
           env.USERS_TABLE,
           { userId },
-          'set eventCredits = if_not_exists(eventCredits, :zero) + :inc, subscriptionStatus = :status, #p = :plan',
+          'set #credits = if_not_exists(#credits, :zero) + :inc, subscriptionStatus = :status, #p = :plan',
           { ':zero': 0, ':inc': creditsToAdd, ':status': 'active', ':plan': packageId },
-          { '#p': 'plan' },
+          { '#credits': creditsField, '#p': 'plan' },
         )
       }
     }

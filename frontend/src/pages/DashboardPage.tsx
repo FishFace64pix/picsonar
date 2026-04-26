@@ -7,7 +7,7 @@ import { Event } from '../types'
 import Navbar from '../components/Navbar'
 import OrderHistoryModal from '../components/OrderHistoryModal'
 import BuyExtraEventModal from '../components/BuyExtraEventModal'
-
+import { PACKAGES } from '@picsonar/shared/constants'
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -23,6 +23,7 @@ export default function DashboardPage() {
 
   const [eventName, setEventName] = useState('')
   const [creating, setCreating] = useState(false)
+  const [selectedPackageId, setSelectedPackageId] = useState<string | undefined>(undefined)
 
   // Redirect if not logged in
   useEffect(() => {
@@ -54,6 +55,35 @@ export default function DashboardPage() {
     if (user) checkPayment()
   }, [user])
 
+  // Per-package credits: build list of packages the user actually has credits for.
+  // Also include legacy eventCredits attributed to their plan for backward compat.
+  const availablePackages = user
+    ? [
+        ...Object.entries(PACKAGES)
+          .filter(([id]) => ((user as any)[`credits_${id}`] ?? 0) > 0)
+          .map(([id, pkg]) => ({
+            id,
+            name: pkg.name,
+            credits: (user as any)[`credits_${id}`] as number,
+            limits: pkg.limits,
+          })),
+        // Legacy slot: eventCredits with no per-package breakdown
+        ...(
+          (user.eventCredits ?? 0) > 0 &&
+          !Object.keys(PACKAGES).some(id => ((user as any)[`credits_${id}`] ?? 0) > 0)
+            ? [{
+                id: user.plan ?? 'starter',
+                name: PACKAGES[(user.plan ?? 'starter') as keyof typeof PACKAGES]?.name ?? 'Legacy',
+                credits: user.eventCredits,
+                limits: PACKAGES[(user.plan ?? 'starter') as keyof typeof PACKAGES]?.limits ?? PACKAGES.starter.limits,
+              }]
+            : []
+        ),
+      ]
+    : []
+
+  const totalCredits = availablePackages.reduce((sum, p) => sum + p.credits, 0)
+
   // React Query for Events
   const { data: events = [], isLoading: loading } = useQuery<Event[]>({
     queryKey: ['events', user?.userId],
@@ -67,10 +97,8 @@ export default function DashboardPage() {
     if (!user) return
     setCreating(true)
     try {
-      const newEvent = await eventsApi.createEvent(eventName, user.userId)
-      // Invalidate query to refresh list on back navigation
+      const newEvent = await eventsApi.createEvent(eventName, user.userId, selectedPackageId)
       queryClient.invalidateQueries({ queryKey: ['events'] })
-
       setShowCreateModal(false)
       setEventName('')
       navigate(`/event/${newEvent.eventId}`)
@@ -81,6 +109,12 @@ export default function DashboardPage() {
     } finally {
       setCreating(false)
     }
+  }
+
+  const openCreateModal = () => {
+    // Auto-select the only package if there's just one; otherwise leave undefined.
+    setSelectedPackageId(availablePackages.length === 1 ? availablePackages[0].id : undefined)
+    setShowCreateModal(true)
   }
 
   const handleMockAddCredits = () => {
@@ -112,10 +146,18 @@ export default function DashboardPage() {
           <div className="flex gap-4 items-center">
             {user && (
               <div className="text-right hidden md:block">
-                <div className="text-sm text-gray-400">{t('dashboard.availableCredits')}</div>
-                <div className={`font-bold text-xl ${(user.eventCredits || 0) > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  {user.eventCredits || 0} {t('dashboard.eventsLeft')}
-                </div>
+                <div className="text-sm text-gray-400 mb-1">{t('dashboard.availableCredits')}</div>
+                {availablePackages.length > 0 ? (
+                  <div className="flex flex-col gap-0.5 items-end">
+                    {availablePackages.map(p => (
+                      <div key={p.id} className="text-sm font-bold text-green-400">
+                        {p.credits}x {p.name}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="font-bold text-xl text-red-400">0 {t('dashboard.eventsLeft')}</div>
+                )}
               </div>
             )}
             <div className="relative group flex gap-3">
@@ -159,14 +201,14 @@ export default function DashboardPage() {
 
               <button
                 onClick={() => {
-                  if (user && (user.eventCredits || 0) > 0) {
-                    setShowCreateModal(true)
+                  if (totalCredits > 0) {
+                    openCreateModal()
                   } else {
                     alert(t('dashboard.noCreditsAlert'))
                     navigate('/pricing')
                   }
                 }}
-                className={`btn-primary flex items-center gap-2 ${(user?.eventCredits || 0) <= 0 ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
+                className={`btn-primary flex items-center gap-2 ${totalCredits <= 0 ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -237,7 +279,7 @@ export default function DashboardPage() {
 
               {!events.some(e => e.totalPhotos > 0) && (
                 <button
-                  onClick={() => events.length > 0 ? navigate(`/event/${events[0].eventId}`) : setShowCreateModal(true)}
+                  onClick={() => events.length > 0 ? navigate(`/event/${events[0].eventId}`) : openCreateModal()}
                   className="w-full mt-6 py-2 bg-white text-black text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-gray-200 transition-colors"
                 >
                   {events.length > 0 ? t('dashboard.checklist.uploadNow') : t('dashboard.checklist.startFirstEvent')}
@@ -286,7 +328,7 @@ export default function DashboardPage() {
             <h3 className="text-xl font-bold text-white mb-2">{t('dashboard.noEvents.title')}</h3>
             <p className="text-gray-400 mb-8 max-w-sm">{t('dashboard.noEvents.subtitle')}</p>
             <button
-              onClick={() => setShowCreateModal(true)}
+              onClick={openCreateModal}
               className="btn-ghost"
             >
               {t('dashboard.createNewEvent')}
@@ -297,23 +339,23 @@ export default function DashboardPage() {
             {/* Create Card (First Item) */}
             <div
               onClick={() => {
-                if (user && (user.eventCredits || 0) > 0) {
-                  setShowCreateModal(true)
+                if (totalCredits > 0) {
+                  openCreateModal()
                 } else {
                   alert(t('dashboard.noCreditsAlert'))
                   setShowBuyModal(true)
                 }
               }}
-              className={`glass-panel p-6 flex flex-col items-center justify-center min-h-[200px] cursor-pointer transition-colors group border-dashed border-2 border-white/20 ${(user?.eventCredits || 0) > 0 ? 'hover:bg-white/10 hover:border-primary-400' : 'opacity-50 grayscale hover:bg-white/5'
+              className={`glass-panel p-6 flex flex-col items-center justify-center min-h-[200px] cursor-pointer transition-colors group border-dashed border-2 border-white/20 ${totalCredits > 0 ? 'hover:bg-white/10 hover:border-primary-400' : 'opacity-50 grayscale hover:bg-white/5'
                 }`}
             >
-              <div className={`w-12 h-12 bg-white/10 rounded-full flex items-center justify-center mb-4 transition-colors ${(user?.eventCredits || 0) > 0 ? 'group-hover:bg-primary-500' : ''
+              <div className={`w-12 h-12 bg-white/10 rounded-full flex items-center justify-center mb-4 transition-colors ${totalCredits > 0 ? 'group-hover:bg-primary-500' : ''
                 }`}>
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
               </div>
-              <span className={`font-semibold text-gray-300 transition-colors ${(user?.eventCredits || 0) > 0 ? 'group-hover:text-white' : ''
+              <span className={`font-semibold text-gray-300 transition-colors ${totalCredits > 0 ? 'group-hover:text-white' : ''
                 }`}>{t('dashboard.createNewEvent')}</span>
             </div>
 
@@ -384,7 +426,7 @@ export default function DashboardPage() {
             <p className="text-gray-400 mb-6 text-sm">{t('dashboard.createModal.subtitle')}</p>
 
             <form onSubmit={handleCreateEvent}>
-              <div className="mb-6">
+              <div className="mb-5">
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   {t('dashboard.createModal.eventName')}
                 </label>
@@ -398,6 +440,54 @@ export default function DashboardPage() {
                   autoFocus
                 />
               </div>
+
+              {/* Package selector — only shown when user has credits in multiple packages */}
+              {availablePackages.length > 1 && (
+                <div className="mb-5">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Paket seç
+                  </label>
+                  <div className="space-y-2">
+                    {availablePackages.map(p => (
+                      <label
+                        key={p.id}
+                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
+                          selectedPackageId === p.id
+                            ? 'border-primary-500 bg-primary-500/10'
+                            : 'border-white/10 hover:border-white/20'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="packageId"
+                          value={p.id}
+                          checked={selectedPackageId === p.id}
+                          onChange={() => setSelectedPackageId(p.id)}
+                          className="accent-primary-500"
+                        />
+                        <div className="flex-1">
+                          <div className="text-sm font-bold text-white">{p.name}</div>
+                          <div className="text-xs text-gray-400">
+                            {p.limits.photoLimitPerEvent.toLocaleString()} fotoğraf · {p.limits.storageMonths} ay depolama
+                          </div>
+                        </div>
+                        <div className="text-xs font-bold text-primary-400">
+                          {p.credits} kredi kaldı
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Single package — just show limits preview */}
+              {availablePackages.length === 1 && (
+                <div className="mb-5 p-3 rounded-xl bg-white/5 border border-white/10 text-xs text-gray-400">
+                  <span className="text-white font-bold">{availablePackages[0].name}</span>
+                  {' '}— {availablePackages[0].limits.photoLimitPerEvent.toLocaleString()} fotoğraf, {availablePackages[0].limits.storageMonths} ay depolama
+                </div>
+              )}
+
               <div className="flex gap-4">
                 <button
                   type="button"
@@ -411,8 +501,8 @@ export default function DashboardPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={creating}
-                  className="flex-1 btn-primary"
+                  disabled={creating || (availablePackages.length > 1 && !selectedPackageId)}
+                  className="flex-1 btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {creating ? t('dashboard.createModal.creating') : t('dashboard.createModal.create')}
                 </button>
