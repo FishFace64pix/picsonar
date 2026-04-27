@@ -39,13 +39,14 @@ provider:
     FACE_INDEX_BUCKET: ${self:custom.faceIndexBucket}
     REKOGNITION_COLLECTION_ID: ${self:custom.rekognitionCollectionId}
     FRONTEND_URL: ${self:custom.frontendUrl}
+    ALLOWED_ORIGINS: ${env:ALLOWED_ORIGINS}
     SES_SENDER_EMAIL: ${env:SES_SENDER_EMAIL, 'hello@picsonar.com'}
     SUPPORT_EMAIL: ${env:SUPPORT_EMAIL, 'support@picsonar.com'}
     # Auth + payment secrets have NO defaults — a missing env is a deploy-time
     # error (loud) rather than silently signing with a guessable string. The
     # zod validator in src/config/env.ts will also fail-fast at cold start.
     JWT_SECRET: ${env:JWT_SECRET}
-    JWT_REFRESH_SECRET: ${env:JWT_REFRESH_SECRET, ''}
+    JWT_REFRESH_SECRET: ${env:JWT_REFRESH_SECRET}
     SMTP_HOST: ${env:SMTP_HOST, 'smtp-relay.brevo.com'}
     SMTP_PORT: ${env:SMTP_PORT, '587'}
     SMTP_USER: ${env:BREVO_SMTP_USER}

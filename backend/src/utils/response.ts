@@ -38,19 +38,17 @@ function corsHeaders(requestOrigin?: string): Record<string, string> {
   try {
     allowed = getEnv().ALLOWED_ORIGINS
   } catch {
-    // env not validated yet (should not happen in normal flow) — fail closed
     allowed = []
   }
   const origin =
     requestOrigin && allowed.includes(requestOrigin)
       ? requestOrigin
-      : allowed[0] ?? 'https://picsonar.com'
+      : '*'
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers':
       'Content-Type, Authorization, X-Request-Id, X-Requested-With',
-    'Access-Control-Allow-Credentials': 'true',
     Vary: 'Origin',
   }
 }
