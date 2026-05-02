@@ -6,7 +6,7 @@
  * button for logged-in users).
  */
 import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { authApi } from '../api/auth'
 import { useAuth } from '../contexts/AuthContext'
@@ -20,6 +20,7 @@ export default function VerifyEmailPage() {
   const [params] = useSearchParams()
   const token = params.get('token') ?? ''
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [state, setState] = useState<State>({ status: 'loading' })
   const [resending, setResending] = useState(false)
 
@@ -34,14 +35,18 @@ export default function VerifyEmailPage() {
       .then((res) => {
         if (cancelled) return
         setState({ status: 'success', alreadyVerified: res.alreadyVerified })
+        setTimeout(() => {
+          navigate(user ? '/dashboard' : '/login')
+        }, 2000)
       })
       .catch((err: any) => {
         if (cancelled) return
         const message =
-          err?.response?.data?.error ??
+          err?.response?.data?.error?.message ??
+          err?.response?.data?.message ??
           err?.message ??
           'Verification link is invalid or has expired.'
-        setState({ status: 'error', message })
+        setState({ status: 'error', message: String(message) })
       })
     return () => {
       cancelled = true
