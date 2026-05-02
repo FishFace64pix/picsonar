@@ -53,17 +53,23 @@ export default function RegisterPage() {
       })
       navigate('/dashboard')
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Registration failed. Please try again.')
+      setError(err.response?.data?.error?.message || err.response?.data?.message || 'Registration failed. Please try again.')
     } finally {
       setLoading(false)
     }
   }
 
+  const passwordValid =
+    password.length >= 10 &&
+    /[A-Z]/.test(password) &&
+    /[a-z]/.test(password) &&
+    /\d/.test(password)
+
   const isFormValid =
     name &&
     email &&
     phone &&
-    password.length >= 6 &&
+    passwordValid &&
     termsAccepted &&
     privacyAccepted &&
     dpaAccepted &&
@@ -151,10 +157,13 @@ export default function RegisterPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  minLength={6}
+                  minLength={10}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary-500 transition-colors"
                   placeholder="••••••••"
                 />
+                <p className="text-[11px] text-gray-500 mt-1.5">
+                  Min. 10 characters, uppercase, lowercase and a digit required.
+                </p>
               </div>
             </div>
 
