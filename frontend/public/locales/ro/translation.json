@@ -161,9 +161,9 @@
             "upsell": "200 RON / credit",
             "features": {
                 "0": "4 Credite de Eveniment",
-                "1": "2.500 Poze / eveniment",
-                "2": "6 Luni Stocare",
-                "3": "Opțiuni White Label",
+                "1": "2.000 Poze / eveniment",
+                "2": "3 Luni Stocare",
+                "3": "Opțiune White Label",
                 "4": "Căutare Facială AI UI",
                 "5": "Suport Prioritar"
             }
@@ -173,10 +173,10 @@
             "upsell": "208 RON / credit",
             "features": {
                 "0": "12 Credite de Eveniment",
-                "1": "5.000 Poze / eveniment",
-                "2": "12 Luni Stocare",
-                "3": "Opțiuni White Label",
-                "4": "Manager de Cont Dedicat",
+                "1": "4.000 Poze / eveniment",
+                "2": "4 Luni Stocare",
+                "3": "Opțiune White Label",
+                "4": "Căutare Facială AI UI",
                 "5": "Suport Premium"
             }
         }

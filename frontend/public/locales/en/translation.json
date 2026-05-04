@@ -161,9 +161,9 @@
             "upsell": "200 RON / credit",
             "features": {
                 "0": "4 Event Credits",
-                "1": "2,500 Photos / event",
-                "2": "6 Months Storage",
-                "3": "White Label Options",
+                "1": "2,000 Photos / event",
+                "2": "3 Months Storage",
+                "3": "White Label Option",
                 "4": "AI Face Search UI",
                 "5": "Priority Support"
             }
@@ -173,10 +173,10 @@
             "upsell": "208 RON / credit",
             "features": {
                 "0": "12 Event Credits",
-                "1": "5,000 Photos / event",
-                "2": "12 Months Storage",
-                "3": "White Label Options",
-                "4": "Dedicated Account Manager",
+                "1": "4,000 Photos / event",
+                "2": "4 Months Storage",
+                "3": "White Label Option",
+                "4": "AI Face Search UI",
                 "5": "Premium Support"
             }
         }

@@ -30,7 +30,7 @@ export const PACKAGES: Record<PackageId, PackageDefinition> = {
     priceMinor: 14_900, // 149 RON
     currency: 'RON',
     billingPeriod: 'one-time',
-    limits: { photoLimitPerEvent: 1000, storageMonths: 2 },
+    limits: { photoLimitPerEvent: 1_000, storageMonths: 2 },
     popular: false,
   },
   studio: {
@@ -40,7 +40,7 @@ export const PACKAGES: Record<PackageId, PackageDefinition> = {
     priceMinor: 79_900, // 799 RON
     currency: 'RON',
     billingPeriod: 'one-time',
-    limits: { photoLimitPerEvent: 2500, storageMonths: 6 },
+    limits: { photoLimitPerEvent: 2_000, storageMonths: 3 },
     popular: true,
   },
   agency: {
@@ -50,7 +50,7 @@ export const PACKAGES: Record<PackageId, PackageDefinition> = {
     priceMinor: 249_900, // 2499 RON
     currency: 'RON',
     billingPeriod: 'one-time',
-    limits: { photoLimitPerEvent: 5000, storageMonths: 12 },
+    limits: { photoLimitPerEvent: 4_000, storageMonths: 4 },
     popular: false,
   },
   extra_event: {
@@ -60,7 +60,7 @@ export const PACKAGES: Record<PackageId, PackageDefinition> = {
     priceMinor: 19_900, // 199 RON
     currency: 'RON',
     billingPeriod: 'one-time',
-    limits: { photoLimitPerEvent: 3000, storageMonths: 6 },
+    limits: { photoLimitPerEvent: 2_000, storageMonths: 3 },
   },
 }
 
