@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
 import { apiClient } from '../api/client'
@@ -135,6 +136,7 @@ const CheckoutForm = ({ packageId, type, quantity, billingData, onPaymentSuccess
 const CheckoutPage = () => {
     const { t } = useTranslation()
     const { user } = useAuth()
+    const navigate = useNavigate()
     const [billingData, setBillingData] = useState<BillingFormData | null>(null)
     const [isBillingValid, setIsBillingValid] = useState(false)
     const [step, setStep] = useState(1)
@@ -187,7 +189,7 @@ const CheckoutPage = () => {
             setRedirectCountdown((n) => {
                 if (n <= 1) {
                     clearInterval(redirectTimerRef.current!)
-                    window.location.href = '/dashboard'
+                    navigate('/dashboard')
                     return 0
                 }
                 return n - 1
@@ -207,7 +209,7 @@ const CheckoutPage = () => {
                 <h1 className="text-4xl font-bold text-white mb-4">Payment Successful!</h1>
                 <p className="text-gray-400 mb-4">Your credits have been added. You can now start or manage your events.</p>
                 <p className="text-gray-500 mb-12 text-sm">Redirecting to dashboard in {redirectCountdown}s…</p>
-                <a href="/dashboard" className="btn-primary px-12">Go to Dashboard Now</a>
+                <button onClick={() => navigate('/dashboard')} className="btn-primary px-12">Go to Dashboard Now</button>
             </div>
         )
     }
@@ -306,7 +308,7 @@ const CheckoutPage = () => {
                                 <div>
                                     <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">{t('checkout.selectedPackage')}</div>
                                     <div className="text-xl font-bold text-white uppercase tracking-tight group-hover:text-primary-400 transition-colors">
-                                        {packageId} ({type})
+                                        {packageId}{type ? ` (${type})` : ''}
                                     </div>
                                 </div>
                                 <button onClick={() => setStep(1)} className="text-xs text-gray-400 hover:text-white transition-colors underline decoration-primary-500/30 underline-offset-4">
