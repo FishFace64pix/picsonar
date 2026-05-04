@@ -53,31 +53,23 @@ export default function DashboardPage() {
     if (user) checkPayment()
   }, [user])
 
-  // Per-package credits: build list of packages the user actually has credits for.
-  // Also include legacy eventCredits attributed to their plan for backward compat.
+  // Per-package credits: merge per-package fields with legacy eventCredits.
+  // Legacy eventCredits (written by old verifyPayment) are added into the
+  // user's current plan slot so they are never hidden when per-package credits exist.
   const availablePackages = user
-    ? [
-        ...Object.entries(PACKAGES)
-          .filter(([id]) => ((user as any)[`credits_${id}`] ?? 0) > 0)
-          .map(([id, pkg]) => ({
+    ? Object.entries(PACKAGES)
+        .map(([id, pkg]) => {
+          const pkgCredits = (user as any)[`credits_${id}`] ?? 0
+          // Fold legacy eventCredits into whichever slot matches the user's plan.
+          const legacyCredits = id === (user.plan ?? 'starter') ? (user.eventCredits ?? 0) : 0
+          return {
             id,
             name: pkg.name,
-            credits: (user as any)[`credits_${id}`] as number,
+            credits: pkgCredits + legacyCredits,
             limits: pkg.limits,
-          })),
-        // Legacy slot: eventCredits with no per-package breakdown
-        ...(
-          (user.eventCredits ?? 0) > 0 &&
-          !Object.keys(PACKAGES).some(id => ((user as any)[`credits_${id}`] ?? 0) > 0)
-            ? [{
-                id: user.plan ?? 'starter',
-                name: PACKAGES[(user.plan ?? 'starter') as keyof typeof PACKAGES]?.name ?? 'Legacy',
-                credits: user.eventCredits,
-                limits: PACKAGES[(user.plan ?? 'starter') as keyof typeof PACKAGES]?.limits ?? PACKAGES.starter.limits,
-              }]
-            : []
-        ),
-      ]
+          }
+        })
+        .filter(p => p.credits > 0)
     : []
 
   const totalCredits = availablePackages.reduce((sum, p) => sum + p.credits, 0)

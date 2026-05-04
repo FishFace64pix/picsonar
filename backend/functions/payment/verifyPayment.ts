@@ -36,6 +36,7 @@ export const handler = async (
 
         let body: {
             orderId?: string
+            paymentIntentId?: string // alias sent by DashboardPage after Stripe redirect
             packageId?: string
             type?: string
             quantity?: number
@@ -47,16 +48,17 @@ export const handler = async (
             return errorResponse('Invalid JSON body', 400)
         }
 
-        // amount is intentionally NOT accepted from the client — we fetch the
-        // authoritative value from Stripe below.
-        const { orderId, packageId, type, quantity = 1, billingData } = body
+        // Accept either orderId or paymentIntentId (DashboardPage uses the latter).
+        const resolvedOrderId = body.orderId ?? body.paymentIntentId
+        let { packageId, type, quantity = 1, billingData } = body
 
-        if (!orderId) return errorResponse('orderId is required', 400)
-        if (!packageId) return errorResponse('packageId is required', 400)
+        if (!resolvedOrderId) return errorResponse('orderId is required', 400)
 
-        if (!orderId.startsWith('pi_')) {
+        if (!resolvedOrderId.startsWith('pi_')) {
             return errorResponse('Invalid order id (expected a Stripe PaymentIntent id)', 400)
         }
+
+        const orderId = resolvedOrderId
 
         // Geo-restriction — only RO-originated payments for now.
         const { isFromRomania } = require('../../src/utils/geoRestriction')
@@ -108,6 +110,13 @@ export const handler = async (
             console.warn(`[verifyPayment] userId mismatch: token=${userId} meta=${metaUserId} orderId=${orderId}`)
             return errorResponse('Order does not belong to this user', 403)
         }
+
+        // If packageId/type/quantity were not in the request body (e.g. Stripe redirect
+        // path from DashboardPage), fall back to the PaymentIntent metadata which was
+        // set by createPaymentIntent and is authoritative.
+        if (!packageId) packageId = paymentIntent.metadata?.packageId
+        if (!type) type = paymentIntent.metadata?.type
+        if (!packageId) return errorResponse('packageId is required', 400)
 
         // Use Stripe's authoritative amount — not the client-supplied value.
         const amount = paymentIntent.amount as number
