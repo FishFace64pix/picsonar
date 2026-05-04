@@ -1,46 +1,22 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
+import { PACKAGES } from '@picsonar/shared/constants'
 
 interface BuyExtraEventModalProps {
     onClose: () => void
 }
 
-const getCreditBundles = (plan: string) => {
-    switch (plan) {
-        case 'studio':
-            return [
-                { id: 'extra_5', credits: 5, price: 1050, label: '5 Credits', tag: null, description: 'Best for small events' },
-                { id: 'extra_10', credits: 10, price: 1950, label: '10 Credits', tag: 'MOST POPULAR', description: 'Best for weddings with 300+ guests' },
-                { id: 'extra_15', credits: 15, price: 2775, label: '15 Credits', tag: 'SAVE 20%', description: 'Agency Choice - Maximum ROI' }
-            ]
-        case 'agency':
-            return [
-                { id: 'extra_5', credits: 5, price: 2750, label: '5 Credits', tag: null, description: 'Best for small events' },
-                { id: 'extra_10', credits: 10, price: 5000, label: '10 Credits', tag: 'MOST POPULAR', description: 'Best for weddings with 300+ guests' },
-                { id: 'extra_15', credits: 15, price: 7125, label: '15 Credits', tag: 'SAVE 20%', description: 'Agency Choice - Maximum ROI' }
-            ]
-        case 'starter':
-        default:
-            return [
-                { id: 'extra_5', credits: 5, price: 600, label: '5 Credits', tag: null, description: 'Best for small events' },
-                { id: 'extra_10', credits: 10, price: 1000, label: '10 Credits', tag: 'MOST POPULAR', description: 'Best for weddings with 300+ guests' },
-                { id: 'extra_15', credits: 15, price: 1350, label: '15 Credits', tag: 'SAVE 20%', description: 'Agency Choice - Maximum ROI' }
-            ]
-    }
-}
+const pkg = PACKAGES['extra_event']
+const PRICE_PER_EVENT = pkg.priceMinor / 100 // 199 RON
 
 export default function BuyExtraEventModal({ onClose }: BuyExtraEventModalProps) {
     const navigate = useNavigate()
-    const { user } = useAuth()
+    const [quantity, setQuantity] = useState(1)
 
-    // Get bundles based on user's active plan (fallback to starter)
-    const bundles = getCreditBundles(user?.plan || 'starter')
-    const [selectedBundle, setSelectedBundle] = useState(bundles[1]) // Default to most popular
+    const total = quantity * PRICE_PER_EVENT
 
     const handleBuy = () => {
-        // We Use type=extra_event and send the quantity and bundle ID
-        navigate(`/checkout?type=extra_event&package=${selectedBundle.id}&quantity=${selectedBundle.credits}`)
+        navigate(`/checkout?package=extra_event&quantity=${quantity}`)
     }
 
     return (
@@ -55,42 +31,47 @@ export default function BuyExtraEventModal({ onClose }: BuyExtraEventModalProps)
                     </svg>
                 </button>
 
-                <h2 className="text-2xl font-bold mb-1 text-white">Add Credits</h2>
-                <p className="text-gray-400 mb-6 text-sm">Select a credit bundle to increase your event capacity.</p>
+                <h2 className="text-2xl font-bold mb-1 text-white">Add Extra Events</h2>
+                <p className="text-gray-400 mb-6 text-sm">
+                    Each extra event credit gives you access to up to {pkg.limits.photoLimitPerEvent.toLocaleString()} photos
+                    for {pkg.limits.storageMonths} months.
+                </p>
 
-                <div className="space-y-4 mb-8">
-                    {bundles.map((bundle) => (
-                        <div
-                            key={bundle.id}
-                            onClick={() => setSelectedBundle(bundle)}
-                            className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex flex-col relative ${selectedBundle.id === bundle.id
-                                ? 'border-primary-500 bg-primary-500/10 shadow-[0_0_15px_rgba(217,70,239,0.2)]'
-                                : 'border-white/10 bg-white/5 hover:border-white/20'
-                                }`}
+                <div className="bg-white/5 border border-white/10 rounded-xl p-6 mb-6">
+                    <div className="text-xs font-black text-gray-500 uppercase tracking-widest mb-4">
+                        How many events?
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                        <button
+                            onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                            disabled={quantity <= 1}
+                            className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-30 text-white font-bold text-xl flex items-center justify-center transition-colors"
                         >
-                            {bundle.tag && (
-                                <div className="absolute -top-2.5 right-4 bg-primary-600 text-[10px] font-black text-white px-2 py-0.5 rounded-full tracking-widest shadow-lg">
-                                    {bundle.tag}
-                                </div>
-                            )}
-                            <div className="flex justify-between items-center mb-1">
-                                <div className="text-white font-bold text-lg">{bundle.label}</div>
-                                <div className="text-right">
-                                    <div className="text-primary-400 font-bold text-xl">{bundle.price} RON</div>
-                                </div>
-                            </div>
-                            <div className="flex justify-between items-center">
-                                <div className="text-gray-500 text-[10px] uppercase font-bold tracking-tight">{bundle.description}</div>
-                                <div className="text-gray-400 text-[10px]">{(bundle.price / bundle.credits).toFixed(2)} RON / credit</div>
+                            −
+                        </button>
+                        <div className="text-center">
+                            <div className="text-4xl font-black text-white">{quantity}</div>
+                            <div className="text-xs text-gray-500 mt-1">
+                                {quantity === 1 ? 'event credit' : 'event credits'}
                             </div>
                         </div>
-                    ))}
+                        <button
+                            onClick={() => setQuantity(q => Math.min(10, q + 1))}
+                            disabled={quantity >= 10}
+                            className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-30 text-white font-bold text-xl flex items-center justify-center transition-colors"
+                        >
+                            +
+                        </button>
+                    </div>
+                    <div className="text-center mt-4 text-sm text-gray-400">
+                        {PRICE_PER_EVENT} RON × {quantity} = <span className="text-primary-400 font-bold">{total} RON</span>
+                    </div>
                 </div>
 
-                <div className="bg-white/5 rounded-xl p-4 mb-8 border border-white/10">
+                <div className="bg-white/5 rounded-xl p-4 mb-6 border border-white/10">
                     <div className="flex justify-between items-center text-lg font-bold">
                         <span className="text-white">Total</span>
-                        <span className="text-primary-400">{selectedBundle.price} RON</span>
+                        <span className="text-primary-400">{total} RON</span>
                     </div>
                 </div>
 
@@ -98,7 +79,7 @@ export default function BuyExtraEventModal({ onClose }: BuyExtraEventModalProps)
                     onClick={handleBuy}
                     className="w-full btn-primary py-3 text-lg font-bold shadow-lg shadow-primary-500/25"
                 >
-                    Secure Checkout
+                    Secure Checkout →
                 </button>
             </div>
         </div>

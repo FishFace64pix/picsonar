@@ -162,7 +162,7 @@ const CheckoutPage = () => {
             })
             window.location.href = data.url
         } catch (err: any) {
-            setError(err.response?.data?.error || 'Failed to start checkout. Please try again.')
+            setError(err.response?.data?.error?.message ?? err.response?.data?.message ?? 'Failed to start checkout. Please try again.')
             setStripeCheckoutLoading(false)
         }
     }
