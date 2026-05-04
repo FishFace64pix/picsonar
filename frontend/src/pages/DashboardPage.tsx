@@ -6,7 +6,6 @@ import { apiClient } from '../api/client'
 import { Event } from '../types'
 import Navbar from '../components/Navbar'
 import OrderHistoryModal from '../components/OrderHistoryModal'
-import BuyExtraEventModal from '../components/BuyExtraEventModal'
 import { PACKAGES } from '@picsonar/shared/constants'
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -19,7 +18,6 @@ export default function DashboardPage() {
   const queryClient = useQueryClient()
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showHistoryModal, setShowHistoryModal] = useState(false)
-  const [showBuyModal, setShowBuyModal] = useState(false)
 
   const [eventName, setEventName] = useState('')
   const [creating, setCreating] = useState(false)
@@ -174,20 +172,16 @@ export default function DashboardPage() {
                 </Link>
               )}
 
-              {/* Add Credits Button - Only show for active subscribers */}
-              {user?.subscriptionStatus === 'active' && (
-                <button
-                  onClick={() => {
-                    setShowBuyModal(true)
-                  }}
-                  className="btn-ghost flex items-center gap-2"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  {t('dashboard.addCredits')}
-                </button>
-              )}
+              {/* Add Credits Button — always visible, goes to pricing page */}
+              <button
+                onClick={() => navigate('/pricing')}
+                className="btn-ghost flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                {t('dashboard.addCredits')}
+              </button>
 
               {/* Dev Only: Instant Mock Credits */}
               {import.meta.env.VITE_USE_MOCK === 'true' && (
@@ -343,7 +337,7 @@ export default function DashboardPage() {
                   openCreateModal()
                 } else {
                   alert(t('dashboard.noCreditsAlert'))
-                  setShowBuyModal(true)
+                  navigate('/pricing')
                 }
               }}
               className={`glass-panel p-6 flex flex-col items-center justify-center min-h-[200px] cursor-pointer transition-colors group border-dashed border-2 border-white/20 ${totalCredits > 0 ? 'hover:bg-white/10 hover:border-primary-400' : 'opacity-50 grayscale hover:bg-white/5'
@@ -411,10 +405,6 @@ export default function DashboardPage() {
         <OrderHistoryModal onClose={() => setShowHistoryModal(false)} />
       )}
 
-      {/* Buy Extra Credits Modal */}
-      {showBuyModal && (
-        <BuyExtraEventModal onClose={() => setShowBuyModal(false)} />
-      )}
 
 
 
