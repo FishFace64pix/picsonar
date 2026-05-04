@@ -137,13 +137,17 @@ export const handler = async (
             )
         }
 
-        // Credit the user.
+        // Credit the user — must use per-package fields (credits_starter, credits_studio, etc.)
+        // to match what stripeWebhook writes. Using the legacy eventCredits field here would
+        // cause credits to be invisible in the dashboard whenever verifyPayment beats the webhook.
+        const creditsField = `credits_${packageId}`
         if (type === 'extra_event') {
             await updateItem(
                 USERS_TABLE,
                 { userId },
-                'set eventCredits = if_not_exists(eventCredits, :zero) + :inc',
-                { ':zero': 0, ':inc': qty }
+                'set #credits = if_not_exists(#credits, :zero) + :inc',
+                { ':zero': 0, ':inc': qty },
+                { '#credits': creditsField },
             )
         } else {
             const packageDetails = (PACKAGES as any)[packageId]
@@ -156,9 +160,9 @@ export const handler = async (
             await updateItem(
                 USERS_TABLE,
                 { userId },
-                'set eventCredits = if_not_exists(eventCredits, :zero) + :inc, subscriptionStatus = :status, #p = :plan',
+                'set #credits = if_not_exists(#credits, :zero) + :inc, subscriptionStatus = :status, #p = :plan',
                 { ':zero': 0, ':inc': totalCreditsToAdd, ':status': 'active', ':plan': packageId },
-                { '#p': 'plan' }
+                { '#credits': creditsField, '#p': 'plan' },
             )
         }
 
