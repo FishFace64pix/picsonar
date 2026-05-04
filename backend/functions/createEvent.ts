@@ -101,6 +101,9 @@ export const handler = withHandler(async (event: APIGatewayProxyEvent, ctx) => {
     description: input.description,
     createdAt: new Date().toISOString(),
     expiresAt: expiresAt.toISOString(),
+    // DynamoDB TTL — epoch seconds. Auto-deletes the event row after the
+    // cleanup Lambda has already removed S3 objects and child records.
+    ttl: Math.floor(expiresAt.getTime() / 1000),
     status: 'active' as const,
     totalPhotos: 0,
     totalFaces: 0,

@@ -64,10 +64,17 @@ provider:
       Action:
         - s3:GetObject
         - s3:PutObject
+        - s3:DeleteObject
       Resource:
         - arn:aws:s3:::${self:custom.rawPhotosBucket}/*
         - arn:aws:s3:::${self:custom.faceIndexBucket}/*
         - arn:aws:s3:::${self:custom.invoicesBucket}/*
+    - Effect: Allow
+      Action:
+        - s3:ListBucket
+      Resource:
+        - arn:aws:s3:::${self:custom.rawPhotosBucket}
+        - arn:aws:s3:::${self:custom.faceIndexBucket}
     - Effect: Allow
       Action:
         - dynamodb:Query
@@ -512,6 +519,15 @@ functions:
           method: post
           cors: true
 
+  cleanupExpiredEvents:
+    handler: functions/cleanupExpiredEvents.handler
+    description: Daily sweep — deletes S3 objects, Rekognition faces, and DynamoDB records for expired events
+    timeout: 300
+    events:
+      - schedule:
+          rate: cron(0 2 * * ? *)
+          enabled: true
+
 
 
 
@@ -549,6 +565,9 @@ resources:
                 KeyType: HASH
             Projection:
               ProjectionType: ALL
+        TimeToLiveSpecification:
+          AttributeName: ttl
+          Enabled: true
 
     FacesTable:
       Type: AWS::DynamoDB::Table
