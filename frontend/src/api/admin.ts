@@ -48,6 +48,14 @@ export interface AdminFinanceStats {
         pkg: string
         status: string
         date: string
+        billing?: {
+            companyName?: string
+            cui?: string
+            billingEmail?: string
+            street?: string
+            city?: string
+            postalCode?: string
+        }
     }[]
     packageStats: Record<string, number>
 }

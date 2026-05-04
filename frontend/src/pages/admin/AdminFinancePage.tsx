@@ -5,6 +5,7 @@ import { adminApi, AdminFinanceStats } from '../../api/admin'
 export default function AdminFinancePage() {
     const [stats, setStats] = useState<AdminFinanceStats | null>(null)
     const [loading, setLoading] = useState(true)
+    const [expanded, setExpanded] = useState<string | null>(null)
 
     useEffect(() => {
         const loadStats = async () => {
@@ -84,32 +85,60 @@ export default function AdminFinancePage() {
                                     <th className="p-4 text-xs font-semibold text-gray-400 uppercase">Order ID</th>
                                     <th className="p-4 text-xs font-semibold text-gray-400 uppercase">Package</th>
                                     <th className="p-4 text-xs font-semibold text-gray-400 uppercase">Amount</th>
-                                    <th className="p-4 text-xs font-semibold text-gray-400 uppercase">User</th>
+                                    <th className="p-4 text-xs font-semibold text-gray-400 uppercase">Company / Email</th>
                                     <th className="p-4 text-xs font-semibold text-gray-400 uppercase text-right">Date</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5">
-                                {stats?.recentOrders.map((order) => (
-                                    <tr key={order.orderId} className="hover:bg-white/5 transition-colors">
-                                        <td className="p-4 font-mono text-xs text-gray-500">
-                                            {order.orderId.substring(0, 8)}...
-                                        </td>
-                                        <td className="p-4">
-                                            <span className="px-2 py-1 bg-primary-500/10 text-primary-300 rounded text-xs font-medium capitalize">
-                                                {order.pkg?.replace(/_/g, ' ')}
-                                            </span>
-                                        </td>
-                                        <td className="p-4 font-bold text-white">
-                                            {order.amount} {order.currency.toUpperCase()}
-                                        </td>
-                                        <td className="p-4 text-sm text-gray-400">
-                                            {order.userId.substring(0, 10)}...
-                                        </td>
-                                        <td className="p-4 text-right text-sm text-gray-500">
-                                            {new Date(order.date).toLocaleDateString()}
-                                        </td>
-                                    </tr>
-                                ))}
+                                {stats?.recentOrders.map((order) => {
+                                    const b = order.billing || {}
+                                    const isOpen = expanded === order.orderId
+                                    return (
+                                        <>
+                                            <tr
+                                                key={order.orderId}
+                                                className="hover:bg-white/5 transition-colors cursor-pointer"
+                                                onClick={() => setExpanded(isOpen ? null : order.orderId)}
+                                            >
+                                                <td className="p-4 font-mono text-xs text-gray-500">
+                                                    {order.orderId.substring(0, 14)}...
+                                                </td>
+                                                <td className="p-4">
+                                                    <span className="px-2 py-1 bg-primary-500/10 text-primary-300 rounded text-xs font-medium capitalize">
+                                                        {order.pkg?.replace(/_/g, ' ')}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4 font-bold text-white">
+                                                    {order.amount} {order.currency.toUpperCase()}
+                                                </td>
+                                                <td className="p-4 text-sm">
+                                                    {b.companyName
+                                                        ? <><span className="text-white font-medium">{b.companyName}</span>{b.cui && <span className="text-gray-500 ml-2 text-xs">CUI: {b.cui}</span>}<br /><span className="text-gray-400 text-xs">{b.billingEmail}</span></>
+                                                        : <span className="text-gray-600 italic text-xs">no billing data</span>
+                                                    }
+                                                </td>
+                                                <td className="p-4 text-right text-sm text-gray-500">
+                                                    {new Date(order.date).toLocaleDateString()}
+                                                    <span className="ml-2 text-gray-600 text-xs">{isOpen ? '▲' : '▼'}</span>
+                                                </td>
+                                            </tr>
+                                            {isOpen && (
+                                                <tr key={`${order.orderId}-detail`} className="bg-white/3">
+                                                    <td colSpan={5} className="px-8 py-4 text-xs text-gray-400 space-y-1">
+                                                        <div className="grid grid-cols-2 gap-x-8 gap-y-1">
+                                                            <div><span className="text-gray-600 uppercase tracking-wider text-[10px]">Company</span><div className="text-white">{b.companyName || '—'}</div></div>
+                                                            <div><span className="text-gray-600 uppercase tracking-wider text-[10px]">CUI / VAT</span><div className="text-white">{b.cui || '—'}</div></div>
+                                                            <div><span className="text-gray-600 uppercase tracking-wider text-[10px]">Billing Email</span><div className="text-white">{b.billingEmail || '—'}</div></div>
+                                                            <div><span className="text-gray-600 uppercase tracking-wider text-[10px]">Address</span><div className="text-white">{[b.street, b.city, b.postalCode].filter(Boolean).join(', ') || '—'}</div></div>
+                                                            <div><span className="text-gray-600 uppercase tracking-wider text-[10px]">Order ID</span><div className="text-white font-mono">{order.orderId}</div></div>
+                                                            <div><span className="text-gray-600 uppercase tracking-wider text-[10px]">User ID</span><div className="text-white font-mono">{order.userId}</div></div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </>
+                                    )
+                                })}
                                 {stats?.recentOrders.length === 0 && (
                                     <tr><td colSpan={5} className="p-8 text-center text-gray-500">No transactions found.</td></tr>
                                 )}

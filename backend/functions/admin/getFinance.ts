@@ -39,8 +39,9 @@ export const handler = async (
             amount: (o.amount || 0) / 100,
             currency: o.currency || 'ron',
             pkg: o.packageId,
-            status: 'paid', // If it's in orders table, it's paid (usually)
-            date: o.createdAt
+            status: 'paid',
+            date: o.createdAt,
+            billing: o.invoiceSnapshot || {},
         }))
 
         // 4. Package Distribution
