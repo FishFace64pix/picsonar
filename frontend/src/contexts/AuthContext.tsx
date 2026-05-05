@@ -8,6 +8,7 @@
  *   have the backend return it as an httpOnly cookie and drop it from JSON.
  * - On 401, the axios interceptor transparently refreshes the access token.
  */
+import axios from 'axios'
 import {
   createContext,
   useContext,
@@ -21,8 +22,13 @@ import { authApi } from '../api/auth'
 import {
   clearTokens,
   getAccessToken,
+  getRefreshToken,
   setTokens,
 } from '../api/tokenStore'
+
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL ||
+  'https://iku0303aa5.execute-api.eu-central-1.amazonaws.com/prod'
 
 interface AuthContextType {
   user: User | null
@@ -44,30 +50,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // On mount: if we still have an access token in memory (SPA navigation)
-  // re-hydrate the user. On a hard refresh the token is gone so we just
-  // render the anonymous state.
+  // On mount: restore session from in-memory token (SPA nav) or persisted
+  // refresh token (hard refresh / new tab).
   useEffect(() => {
     let cancelled = false
-    const token = getAccessToken()
-    if (!token) {
-      setLoading(false)
-      return
-    }
-    authApi
-      .getCurrentUser()
-      .then((u) => {
+
+    const restore = async () => {
+      try {
+        if (!getAccessToken()) {
+          const rt = getRefreshToken()
+          if (!rt) return
+          const resp = await axios.post(`${API_BASE}/auth/refresh`, { refreshToken: rt })
+          const { token, refreshToken: newRt } = resp.data ?? {}
+          if (!token) return
+          setTokens({ accessToken: token, refreshToken: newRt ?? rt })
+        }
+        const u = await authApi.getCurrentUser()
         if (!cancelled) setUser(u)
-      })
-      .catch(() => {
-        if (!cancelled) clearTokens()
-      })
-      .finally(() => {
+      } catch {
+        clearTokens()
+      } finally {
         if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
+      }
     }
+
+    restore()
+    return () => { cancelled = true }
   }, [])
 
   const login = async (email: string, password: string) => {

@@ -13,8 +13,12 @@
  */
 type Listener = (token: string | null) => void
 
+const RT_KEY = 'ps_rt'
+
 let accessToken: string | null = null
-let refreshToken: string | null = null
+let refreshToken: string | null = (() => {
+  try { return localStorage.getItem(RT_KEY) } catch { return null }
+})()
 const listeners = new Set<Listener>()
 
 export function getAccessToken(): string | null {
@@ -30,7 +34,16 @@ export function setTokens(next: {
   refreshToken?: string | null
 }): void {
   accessToken = next.accessToken
-  if (next.refreshToken !== undefined) refreshToken = next.refreshToken
+  if (next.refreshToken !== undefined) {
+    refreshToken = next.refreshToken
+    try {
+      if (next.refreshToken) {
+        localStorage.setItem(RT_KEY, next.refreshToken)
+      } else {
+        localStorage.removeItem(RT_KEY)
+      }
+    } catch { /* private browsing — ignore */ }
+  }
   listeners.forEach((l) => l(accessToken))
 }
 
