@@ -290,7 +290,7 @@ const ProfilePage: React.FC = () => {
                                 Company Branding (White Label)
                             </h3>
                             <div className="flex flex-col md:flex-row gap-8 items-start">
-                                {user?.plan === 'venue_bundle' ? (
+                                {(user?.plan === 'studio' || user?.plan === 'agency') ? (
                                     <>
                                         <div className="w-full md:w-1/3">
                                             <div className="relative group">
@@ -369,7 +369,7 @@ const ProfilePage: React.FC = () => {
                                         <div className="bg-white/5 rounded-xl p-6 border border-white/10 max-w-lg mx-auto">
                                             <h4 className="text-lg font-bold text-white mb-2">💎 Premium Feature</h4>
                                             <p className="text-gray-400 text-sm mb-4">
-                                                Custom Branding (White Label) is available exclusively on the <span className="text-primary-400 font-bold">Venue/Agency</span> plan.
+                                                Custom Branding (White Label) is available on <span className="text-primary-400 font-bold">Studio</span> and <span className="text-primary-400 font-bold">Agency</span> plans.
                                             </p>
                                             <Link to="/pricing" className="btn-primary inline-block px-6 py-2 text-sm">
                                                 Upgrade Now
