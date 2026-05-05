@@ -9,7 +9,12 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { Upload } from '@aws-sdk/lib-storage'
 
-const s3Client = new S3Client({ region: process.env.REGION || 'us-east-1' })
+const s3Client = new S3Client({
+  region: process.env.REGION || 'eu-central-1',
+  // Disable automatic checksum injection so browser fetch() can PUT to presigned URLs
+  // without needing to compute or send x-amz-checksum-* headers.
+  requestChecksumCalculation: 'WHEN_REQUIRED' as any,
+})
 
 export async function uploadToS3(
   bucket: string,
