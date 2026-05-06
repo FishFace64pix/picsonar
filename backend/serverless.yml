@@ -443,8 +443,8 @@ functions:
     handler: functions/logo/getUploadUrl.handler
     events:
       - http:
-          path: user/logo-upload-url
-          method: get
+          path: user/upload-logo
+          method: post
           cors: true
 
   getAdminStats:

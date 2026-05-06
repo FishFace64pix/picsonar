@@ -314,40 +314,26 @@ const ProfilePage: React.FC = () => {
                                                             try {
                                                                 setMessage({ type: 'success', text: 'Uploading logo...' })
 
-                                                                // 1. Get Presigned URL
-                                                                // Note: getLogoUploadUrl now returns readUrl as well
-                                                                const { uploadUrl, readUrl, key } = await authApi.getLogoUploadUrl()
-
-                                                                // 2. Upload to S3
-                                                                await fetch(uploadUrl, {
-                                                                    method: 'PUT',
-                                                                    body: file,
-                                                                    headers: {
-                                                                        'Content-Type': file.type
+                                                                // Read file as base64 and POST to Lambda (avoids S3 CORS/checksum issues)
+                                                                const base64 = await new Promise<string>((resolve, reject) => {
+                                                                    const reader = new FileReader()
+                                                                    reader.onload = () => {
+                                                                        const result = reader.result as string
+                                                                        resolve(result.split(',')[1]) // strip data:image/...;base64,
                                                                     }
+                                                                    reader.onerror = reject
+                                                                    reader.readAsDataURL(file)
                                                                 })
 
-                                                                // 3. Update Profile
-                                                                // We save logoKey for key-based lookup, and use readUrl (signed) for immediate display
-                                                                const updatedDetails = {
-                                                                    ...companyDetails,
-                                                                    logoUrl: readUrl,
-                                                                    logoKey: key
-                                                                }
-                                                                setCompanyDetails(updatedDetails)
-                                                                await authApi.updateProfile(updatedDetails)
+                                                                const { data } = await authApi.uploadLogo(base64, file.type)
 
+                                                                setCompanyDetails(prev => ({ ...prev, logoUrl: data.readUrl, logoKey: data.key }))
                                                                 setMessage({ type: 'success', text: 'Logo uploaded successfully!' })
                                                                 setTimeout(() => setMessage(null), 3000)
 
                                                             } catch (err: any) {
                                                                 console.error(err)
-                                                                // Handle 403 specifically
-                                                                if (err.response?.status === 403) {
-                                                                    setMessage({ type: 'error', text: 'Upgrade to Venue/Agency plan to upload logo.' })
-                                                                } else {
-                                                                    setMessage({ type: 'error', text: 'Failed to upload logo.' })
-                                                                }
+                                                                setMessage({ type: 'error', text: err.response?.status === 403 ? 'Studio or Agency plan required.' : 'Failed to upload logo.' })
                                                             }
                                                         }}
                                                     />

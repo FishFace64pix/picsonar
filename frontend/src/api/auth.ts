@@ -150,20 +150,7 @@ export const authApi = {
     await apiClient.post('/auth/resend-verification', {})
   },
 
-  getLogoUploadUrl: async (): Promise<{
-    uploadUrl: string
-    readUrl: string
-    key: string
-  }> => {
-    if (USE_MOCK) {
-      await new Promise((r) => setTimeout(r, 300))
-      return {
-        uploadUrl: 'mock-upload-url',
-        readUrl: 'https://via.placeholder.com/150',
-        key: 'mock-key',
-      }
-    }
-    const resp = await apiClient.get('/user/logo-upload-url')
-    return resp.data
+  uploadLogo: async (imageData: string, contentType: string) => {
+    return apiClient.post('/user/upload-logo', { imageData, contentType })
   },
 }
