@@ -1,11 +1,9 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 import { successResponse, errorResponse } from '../../src/utils/response'
 import { verifyAuthHeader } from '../../src/utils/jwt'
-import { scanTable } from '../../src/utils/dynamodb'
-
-const USERS_TABLE = process.env.USERS_TABLE!
-const EVENTS_TABLE = process.env.EVENTS_TABLE!
-const ORDERS_TABLE = process.env.ORDERS_TABLE!
+import { scanTablePage } from '../../src/utils/dynamodb'
+import { enforceRateLimit, rateLimitIdentity } from '../../src/middleware/rateLimit'
+import { getEnv } from '../../src/config/env'
 
 export const handler = async (
     event: APIGatewayProxyEvent
@@ -16,17 +14,29 @@ export const handler = async (
         const payload = verifyAuthHeader(authHeader);
         if (!payload || payload.role !== 'admin') return errorResponse('Forbidden: Admin access required', 403);
 
-        // In a real production app with millions of records, SCAN is bad.
-        // Ideally we should use the SystemStatsTable to increment counters.
-        // For now (MVP/Startup scale), scanning is acceptable and ensures 100% accuracy.
+        const env = getEnv()
+        const USERS_TABLE = env.USERS_TABLE
+        const EVENTS_TABLE = env.EVENTS_TABLE
+        const ORDERS_TABLE = env.ORDERS_TABLE
+
+        await enforceRateLimit({
+            endpoint: 'admin:stats',
+            identity: rateLimitIdentity(event),
+            max: 10,
+            windowSec: 60,
+        })
+
+        // Scans are capped at 2 000 items each to prevent Lambda timeout / DynamoDB
+        // throttling at scale. For exact counts, migrate to a SystemStatsTable approach.
+        const MAX_ITEMS = 2000
 
         // 1. Get Users Stats
-        const users = await scanTable(USERS_TABLE)
+        const { items: users } = await scanTablePage({ tableName: USERS_TABLE, limit: MAX_ITEMS })
         const totalUsers = users.length
         const activeSubs = users.filter((u: any) => u.subscriptionStatus === 'active').length
 
         // 2. Get Events Stats
-        const eventsList = await scanTable(EVENTS_TABLE)
+        const { items: eventsList } = await scanTablePage({ tableName: EVENTS_TABLE, limit: MAX_ITEMS })
         const totalEvents = eventsList.length
         const activeEvents = eventsList.filter((e: any) => e.status === 'active').length
 
@@ -47,7 +57,7 @@ export const handler = async (
         const totalStorageGB = (totalStorageBytes / (1024 * 1024 * 1024)).toFixed(2)
 
         // 3. Get Orders Stats (Today)
-        const orders = await scanTable(ORDERS_TABLE)
+        const { items: orders } = await scanTablePage({ tableName: ORDERS_TABLE, limit: MAX_ITEMS })
         // Filter for today (UTC)
         const today = new Date()
         today.setHours(0, 0, 0, 0)

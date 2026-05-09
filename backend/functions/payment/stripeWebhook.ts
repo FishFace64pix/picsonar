@@ -184,7 +184,16 @@ async function handlePaymentSucceeded(
     type: type || 'credit_bundle',
     quantity: qty,
   }
-  await putItem(env.ORDERS_TABLE, order)
+  try {
+    await putItem(env.ORDERS_TABLE, order, 'attribute_not_exists(orderId)')
+  } catch (err: any) {
+    if (err.name === 'ConditionalCheckFailedException') {
+      // checkout.session.completed already wrote this order (race).
+      log.info('stripe.webhook.pi_succeeded_idempotent_skip', { orderId })
+      return
+    }
+    throw err
+  }
 
   // Credit application — best-effort, loud metric on failure.
   // Credits go into per-package fields (credits_starter, credits_studio, etc.)

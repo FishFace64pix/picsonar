@@ -105,10 +105,9 @@ export const handler = async (event: S3Event): Promise<void> => {
         await updateItem(
           EVENTS_TABLE,
           { eventId },
-          'SET totalFaces = totalFaces + :faces, totalPhotos = totalPhotos + :photos, totalSizeBytes = if_not_exists(totalSizeBytes, :zero) + :bytes',
+          'SET totalPhotos = if_not_exists(totalPhotos, :zero) + :photos, totalSizeBytes = if_not_exists(totalSizeBytes, :zero) + :bytes',
           {
-            ':faces': 0, // Will be updated below if faces found, but we want to fail safe here 
-            ':photos': 1, // Increment photo count here to be safe
+            ':photos': 1,
             ':zero': 0,
             ':bytes': totalBytesProcessed
           }
@@ -152,13 +151,12 @@ export const handler = async (event: S3Event): Promise<void> => {
           faceIds.push(faceId)
         }
 
-        // Update event face count ONLY
         if (faceIds.length > 0) {
           await updateItem(
             EVENTS_TABLE,
             { eventId },
-            'SET totalFaces = totalFaces + :inc',
-            { ':inc': faceIds.length }
+            'SET totalFaces = if_not_exists(totalFaces, :zero) + :inc',
+            { ':zero': 0, ':inc': faceIds.length }
           )
         }
 

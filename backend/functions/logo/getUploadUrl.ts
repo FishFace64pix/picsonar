@@ -1,6 +1,6 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 import { successResponse, errorResponse } from '../../src/utils/response'
-import { uploadToS3, getSignedUrlForDownload } from '../../src/utils/s3'
+import { uploadToS3, getSignedUrlForDownload, deleteFromS3 } from '../../src/utils/s3'
 import { getItem, updateItem } from '../../src/utils/dynamodb'
 import { verifyAuthHeader } from '../../src/utils/jwt'
 
@@ -59,12 +59,21 @@ export const handler = async (
 
         await uploadToS3(BUCKET_NAME, key, buffer, contentType)
 
-        // Persist the key on the user record so getEvent can generate signed read URLs
+        // Delete the previous logo from S3 to avoid accumulating unused objects.
+        const existingDetails = (user.companyDetails as Record<string, unknown>) || {}
+        const previousKey = existingDetails.logoKey as string | undefined
+        if (previousKey && previousKey !== key) {
+            try { await deleteFromS3(BUCKET_NAME, previousKey) } catch { /* best-effort */ }
+        }
+
+        // Persist the key on the user record so getEvent can generate signed read URLs.
+        // Use SET on the whole companyDetails map to avoid DynamoDB nested-path failures
+        // when companyDetails doesn't exist yet.
         await updateItem(
             USERS_TABLE,
             { userId },
-            'set companyDetails.logoKey = :key',
-            { ':key': key },
+            'SET companyDetails = :cd',
+            { ':cd': { ...existingDetails, logoKey: key } },
         )
 
         const readUrl = await getSignedUrlForDownload(BUCKET_NAME, key, 3600)

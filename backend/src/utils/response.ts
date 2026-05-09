@@ -43,7 +43,7 @@ function corsHeaders(requestOrigin?: string): Record<string, string> {
   const origin =
     requestOrigin && allowed.includes(requestOrigin)
       ? requestOrigin
-      : '*'
+      : (allowed[0] ?? 'https://picsonar.com')
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',

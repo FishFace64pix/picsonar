@@ -144,6 +144,16 @@ export const handler = async (
                 orderRecord,
                 'attribute_not_exists(orderId)',
             )
+        } else if (existingOrder.status !== 'PAID') {
+            // Order was written as FAILED by an earlier webhook; Stripe confirmed
+            // success, so bring it to PAID before crediting.
+            await updateItem(
+                ORDERS_TABLE,
+                { orderId },
+                'SET #s = :s',
+                { ':s': 'PAID' },
+                { '#s': 'status' },
+            )
         }
 
         // Credit the user — must use per-package fields (credits_starter, credits_studio, etc.)
