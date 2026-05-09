@@ -107,14 +107,14 @@ export const handler = async (event: S3Event): Promise<void> => {
         console.error('Thumbnail generation failed:', thumbError)
       }
 
-      // Update EVENT stats with total bytes (Atomic increment)
+      // Update EVENT storage bytes only — totalPhotos is already incremented
+      // atomically by uploadPhoto as a slot reservation (double-counting fix).
       try {
         await updateItem(
           EVENTS_TABLE,
           { eventId },
-          'SET totalPhotos = if_not_exists(totalPhotos, :zero) + :photos, totalSizeBytes = if_not_exists(totalSizeBytes, :zero) + :bytes',
+          'SET totalSizeBytes = if_not_exists(totalSizeBytes, :zero) + :bytes',
           {
-            ':photos': 1,
             ':zero': 0,
             ':bytes': totalBytesProcessed
           }
