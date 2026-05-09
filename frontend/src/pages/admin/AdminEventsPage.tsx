@@ -5,6 +5,7 @@ import { adminApi, AdminEvent } from '../../api/admin'
 export default function AdminEventsPage() {
     const [events, setEvents] = useState<AdminEvent[]>([])
     const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
     const [actionLoading, setActionLoading] = useState<string | null>(null)
 
     useEffect(() => {
@@ -12,11 +13,15 @@ export default function AdminEventsPage() {
     }, [])
 
     const loadEvents = async () => {
+        setError(null)
         try {
             const data = await adminApi.getEvents()
             setEvents(data)
-        } catch (error) {
-            console.error('Failed to load events', error)
+        } catch (err: any) {
+            const msg = err?.response?.data?.error?.message ?? err?.message ?? 'Failed to load events'
+            const status = err?.response?.status
+            setError(status === 403 ? 'Permission denied — sign out and sign back in to refresh your session.' : msg)
+            console.error('Failed to load events', err)
         } finally {
             setLoading(false)
         }
@@ -76,6 +81,8 @@ export default function AdminEventsPage() {
                         <tbody className="divide-y divide-white/5">
                             {loading ? (
                                 <tr><td colSpan={6} className="p-8 text-center text-gray-400">Loading events...</td></tr>
+                            ) : error ? (
+                                <tr><td colSpan={6} className="p-8 text-center text-red-400">{error}</td></tr>
                             ) : events.map((evt) => (
                                 <tr key={evt.eventId} className="hover:bg-white/5 transition-colors">
                                     <td className="p-4">
