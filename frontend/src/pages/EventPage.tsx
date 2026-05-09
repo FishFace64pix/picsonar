@@ -43,7 +43,11 @@ export default function EventPage() {
       setEvent(eventData)
       setFaces(facesData)
       setPhotos(photosData as Photo[])
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.response?.status === 401 || error?.response?.status === 403) {
+        navigate('/dashboard')
+        return
+      }
       console.error('Failed to load event data:', error)
     } finally {
       setLoading(false)

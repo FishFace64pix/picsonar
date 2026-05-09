@@ -14,14 +14,14 @@ import { z } from 'zod'
 
 import { getEnv } from '../src/config/env'
 import { withHandler } from '../src/middleware/handler'
+import { requireAuth } from '../src/middleware/auth'
 import { parsePath, parseQuery } from '../src/middleware/validate'
+import { ensureEventOwnership } from '../src/middleware/ownership'
 import {
   enforceRateLimit,
   rateLimitIdentity,
 } from '../src/middleware/rateLimit'
 import { queryItemsPage } from '../src/utils/dynamodb'
-import { NotFoundError } from '../src/utils/errors'
-import { getItem } from '../src/utils/dynamodb'
 import { getSignedUrlForDownload } from '../src/utils/s3'
 import { successResponse } from '../src/utils/response'
 
@@ -32,20 +32,19 @@ const QuerySchema = z.object({
 })
 
 export const handler = withHandler(async (event: APIGatewayProxyEvent, ctx) => {
+  const jwt = requireAuth(event)
   const { eventId } = parsePath(event, PathSchema)
   const { limit, cursor } = parseQuery(event, QuerySchema)
   const env = getEnv()
 
   await enforceRateLimit({
     endpoint: 'events:photos',
-    identity: rateLimitIdentity(event),
+    identity: rateLimitIdentity(event, jwt.userId),
     max: 120,
     windowSec: 60,
   })
 
-  // Verify the event exists — stops IDOR scanning for random UUIDs.
-  const eventData = await getItem(env.EVENTS_TABLE, { eventId })
-  if (!eventData) throw new NotFoundError('Event not found')
+  await ensureEventOwnership(eventId, jwt)
 
   const { items, nextCursor } = await queryItemsPage({
     tableName: env.PHOTOS_TABLE,
