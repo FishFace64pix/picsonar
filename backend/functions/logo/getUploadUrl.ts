@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
-import { successResponse, errorResponse } from '../../src/utils/response'
+import { successResponse, errorResponse, preflightResponse } from '../../src/utils/response'
 import { uploadToS3, getSignedUrlForDownload, deleteFromS3 } from '../../src/utils/s3'
 import { getItem, updateItem } from '../../src/utils/dynamodb'
 import { verifyAuthHeader } from '../../src/utils/jwt'
@@ -19,39 +19,46 @@ const MAX_SIZE_BYTES = 3 * 1024 * 1024 // 3 MB
 export const handler = async (
     event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
+    const requestOrigin = event.headers?.origin ?? event.headers?.Origin
+
+    // Handle CORS preflight
+    if (event.httpMethod === 'OPTIONS') {
+        return preflightResponse(requestOrigin)
+    }
+
     try {
         const authHeader = event.headers.Authorization || event.headers.authorization
-        if (!authHeader) return errorResponse('Authorization header is required', 401)
+        if (!authHeader) return errorResponse('Authorization header is required', 401, { requestOrigin })
 
         const payload = verifyAuthHeader(authHeader)
-        if (!payload) return errorResponse('Invalid or expired token', 401)
+        if (!payload) return errorResponse('Invalid or expired token', 401, { requestOrigin })
 
         const { userId } = payload
 
         const user = await getItem(USERS_TABLE, { userId })
         if (!user || !['studio', 'agency'].includes(user.plan)) {
-            return errorResponse('White label branding requires Studio or Agency plan.', 403)
+            return errorResponse('White label branding requires Studio or Agency plan.', 403, { requestOrigin })
         }
 
-        if (!event.body) return errorResponse('Request body is required', 400)
+        if (!event.body) return errorResponse('Request body is required', 400, { requestOrigin })
 
         let body: { imageData?: string; contentType?: string }
         try {
             body = JSON.parse(event.body)
         } catch {
-            return errorResponse('Invalid JSON body', 400)
+            return errorResponse('Invalid JSON body', 400, { requestOrigin })
         }
 
         const { imageData, contentType = 'image/jpeg' } = body
-        if (!imageData) return errorResponse('imageData is required', 400)
+        if (!imageData) return errorResponse('imageData is required', 400, { requestOrigin })
 
         if (!['image/jpeg', 'image/png', 'image/webp'].includes(contentType)) {
-            return errorResponse('contentType must be image/jpeg, image/png, or image/webp', 400)
+            return errorResponse('contentType must be image/jpeg, image/png, or image/webp', 400, { requestOrigin })
         }
 
         const buffer = Buffer.from(imageData, 'base64')
         if (buffer.length > MAX_SIZE_BYTES) {
-            return errorResponse('Logo must be under 3 MB', 400)
+            return errorResponse('Logo must be under 3 MB', 400, { requestOrigin })
         }
 
         const ext = contentType === 'image/png' ? 'png' : contentType === 'image/webp' ? 'webp' : 'jpg'
@@ -78,10 +85,10 @@ export const handler = async (
 
         const readUrl = await getSignedUrlForDownload(BUCKET_NAME, key, 3600)
 
-        return successResponse({ key, readUrl })
+        return successResponse({ key, readUrl }, 200, { requestOrigin })
 
     } catch (error: any) {
         console.error('[uploadLogo] Error:', error)
-        return errorResponse(error.message || 'Failed to upload logo', 500)
+        return errorResponse(error.message || 'Failed to upload logo', 500, { requestOrigin })
     }
 }
