@@ -117,6 +117,11 @@ export const handler = withHandler(async (event: APIGatewayProxyEvent, ctx) => {
     env.SIGNED_URL_TTL_SECONDS,
   )
 
+  // Inherit the event's TTL so orphaned photo records expire automatically
+  // when the event is cleaned up. Fall back to 180-day retention (matches S3 lifecycle).
+  const eventTtl = (eventData as any).ttl as number | undefined
+  const photoTtl = eventTtl ?? Math.floor(Date.now() / 1000) + 180 * 24 * 60 * 60
+
   const photo = {
     photoId,
     eventId,
@@ -126,6 +131,7 @@ export const handler = withHandler(async (event: APIGatewayProxyEvent, ctx) => {
     sizeBytes: file.content.length,
     faces: [] as string[],
     uploadedAt: new Date().toISOString(),
+    ttl: photoTtl,
   }
 
   await putItem(env.PHOTOS_TABLE, photo)

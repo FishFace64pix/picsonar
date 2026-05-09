@@ -75,6 +75,23 @@ export function withHandler(inner: LambdaHandler) {
   }
 }
 
+/**
+ * In production, strip full Zod fieldError messages from validation failures —
+ * they would reveal the API schema to attackers probing with invalid payloads.
+ * Only field names are kept so frontend forms can highlight the right fields.
+ * In non-production environments the full flatten() output is preserved for
+ * easier debugging.
+ */
+function sanitizeDetails(err: AppError): unknown {
+  const isProd = process.env.NODE_ENV === 'production'
+  if (!isProd || err.code !== 'VALIDATION_ERROR') return err.details
+  const details = err.details as { fieldErrors?: Record<string, unknown>; formErrors?: unknown[] } | undefined
+  if (!details) return undefined
+  return {
+    fields: Object.keys(details.fieldErrors ?? {}),
+  }
+}
+
 function handleError(
   err: unknown,
   ctx: HandlerContext,
@@ -99,7 +116,7 @@ function handleError(
     }
     return errorResponse(err.message, err.statusCode, {
       code: err.code,
-      details: err.details,
+      details: sanitizeDetails(err),
       requestOrigin: ctx.requestOrigin,
       traceId: ctx.traceId,
     })

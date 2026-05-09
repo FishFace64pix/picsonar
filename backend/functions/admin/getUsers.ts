@@ -1,32 +1,34 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 import { successResponse, errorResponse } from '../../src/utils/response'
 import { verifyAuthHeader } from '../../src/utils/jwt'
-import { scanTable, queryItems } from '../../src/utils/dynamodb'
+import { scanTablePage } from '../../src/utils/dynamodb'
+import { enforceRateLimit, rateLimitIdentity } from '../../src/middleware/rateLimit'
+import { getEnv } from '../../src/config/env'
 
-const USERS_TABLE = process.env.USERS_TABLE!
-const EVENTS_TABLE = process.env.EVENTS_TABLE!
+const MAX_ITEMS = 2000
 
 export const handler = async (
     event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
     try {
-        const authHeader = event.headers.Authorization || event.headers.authorization;
-        if (!authHeader) return errorResponse('Authorization header is required', 401);
-        const payload = verifyAuthHeader(authHeader);
-        if (!payload || payload.role !== 'admin') return errorResponse('Forbidden: Admin access required', 403);
+        const authHeader = event.headers.Authorization || event.headers.authorization
+        if (!authHeader) return errorResponse('Authorization header is required', 401)
+        const payload = verifyAuthHeader(authHeader)
+        if (!payload || payload.role !== 'admin') return errorResponse('Forbidden: Admin access required', 403)
 
-        // 1. Get all users
-        const users = await scanTable(USERS_TABLE)
+        const env = getEnv()
 
-        // 2. Enrich with event counts (This is expensive for many users, but fine for MVP admin)
-        // A better way would be to store eventCount on the user item itself.
-        // For now, we will just return user basic info to be fast.
-        // Frontend can fetch event counts lazily if needed, or we implement a stats aggregator.
+        await enforceRateLimit({
+            endpoint: 'admin:users',
+            identity: rateLimitIdentity(event),
+            max: 10,
+            windowSec: 60,
+        })
 
-        // Let's try to do a quick aggregation if total users is small (<1000)
-        const events = await scanTable(EVENTS_TABLE)
+        const { items: users } = await scanTablePage({ tableName: env.USERS_TABLE, limit: MAX_ITEMS })
+        const { items: events } = await scanTablePage({ tableName: env.EVENTS_TABLE, limit: MAX_ITEMS })
+
         const userEventCounts: Record<string, number> = {}
-
         events.forEach((e: any) => {
             userEventCounts[e.userId] = (userEventCounts[e.userId] || 0) + 1
         })
@@ -38,12 +40,11 @@ export const handler = async (
             role: u.role || 'user',
             subscriptionStatus: u.subscriptionStatus || 'inactive',
             createdAt: u.createdAt,
-            lastLogin: u.lastLogin, // Assuming we track this
+            lastLogin: u.lastLogin,
             eventCount: userEventCounts[u.userId] || 0,
-            credits: u.eventCredits || 0
+            credits: u.eventCredits || 0,
         }))
 
-        // Sort by createdAt desc
         enrichedUsers.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
         return successResponse(enrichedUsers)

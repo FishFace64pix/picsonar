@@ -75,7 +75,7 @@ export const handler = async (
             }
 
             if (existingOrder.status === 'PAID') {
-                console.log(`[verifyPayment] Idempotent skip for orderId=${orderId}, already PAID`)
+                console.info(`[verifyPayment] idempotent skip orderId=${orderId}`)
                 return successResponse({
                     success: true,
                     alreadyProcessed: true,
@@ -185,7 +185,7 @@ export const handler = async (
             )
         }
 
-        console.log(`[verifyPayment] Payment verified and credits added for userId=${userId}, orderId=${orderId}, packageId=${packageId}, qty=${qty}, amount=${amount}`)
+        console.info(`[verifyPayment] credits applied userId=${userId} orderId=${orderId} pkg=${packageId}`)
 
         return successResponse({
             success: true,
@@ -197,7 +197,7 @@ export const handler = async (
 
     } catch (error: any) {
         if (error?.name === 'ConditionalCheckFailedException') {
-            console.log('[verifyPayment] Race condition: order already written by concurrent request')
+            console.info('[verifyPayment] concurrent write detected, returning success')
             return successResponse({
                 success: true,
                 alreadyProcessed: true,

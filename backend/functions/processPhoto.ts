@@ -22,7 +22,6 @@ export const handler = async (event: S3Event): Promise<void> => {
 
       // Skip processing if it's already a thumbnail
       if (key.includes('thumbnails/')) {
-        console.log('Skipping thumbnail:', key)
         continue
       }
 
@@ -44,7 +43,17 @@ export const handler = async (event: S3Event): Promise<void> => {
       const eventId = parts[0]
       const photoId = parts[1].replace('.jpg', '') // assumes jpg extension
 
-      console.log(`Processing photo: ${key} for event: ${eventId}`)
+      // Guard: skip if the event doesn't exist or is no longer active.
+      // Prevents wasted Rekognition calls for orphaned uploads.
+      const eventRecord = await getItem(EVENTS_TABLE, { eventId })
+      if (!eventRecord) {
+        console.error(`Event not found for S3 key: ${key}, skipping`)
+        continue
+      }
+      if (eventRecord.status && eventRecord.status !== 'active') {
+        console.warn(`Event ${eventId} is not active (status: ${eventRecord.status}), skipping Rekognition`)
+        continue
+      }
 
       // Get photo record
       const photo = await getItem(PHOTOS_TABLE, { photoId })
@@ -86,8 +95,6 @@ export const handler = async (event: S3Event): Promise<void> => {
           ContentType: 'image/jpeg'
         }))
 
-        console.log(`Thumbnail created: ${thumbnailS3Key}, Size: ${thumbnailBuffer.length} bytes`)
-
         // Update photo record with thumbnail key
         await updateItem(
           PHOTOS_TABLE,
@@ -120,8 +127,6 @@ export const handler = async (event: S3Event): Promise<void> => {
 
       // Detect faces in the photo
       const faceDetails = await detectFacesInS3(bucket, key)
-
-      console.log(`Detected ${faceDetails.length} faces`)
 
       if (faceDetails.length > 0) {
         // Index faces in Rekognition collection

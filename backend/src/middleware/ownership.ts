@@ -1,6 +1,6 @@
 import { getItem } from '../utils/dynamodb'
 import { ForbiddenError, NotFoundError } from '../utils/errors'
-import type { JwtPayload, Event as EventEntity } from '@picsonar/shared/types'
+import type { JwtPayload, Event as EventEntity, Photo } from '@picsonar/shared/types'
 import { getEnv } from '../config/env'
 
 /**
@@ -26,9 +26,9 @@ export async function ensureEventOwnership(
 export async function ensurePhotoOwnership(
   photoId: string,
   jwt: JwtPayload,
-): Promise<{ photo: any; event: EventEntity }> {
+): Promise<{ photo: Photo; event: EventEntity }> {
   const { PHOTOS_TABLE, EVENTS_TABLE } = getEnv() as any
-  const photo = await getItem(PHOTOS_TABLE, { photoId })
+  const photo = await getItem(PHOTOS_TABLE, { photoId }) as Photo | null
   if (!photo) throw new NotFoundError('Photo not found')
   const event = (await getItem(EVENTS_TABLE, { eventId: photo.eventId })) as EventEntity | null
   if (!event) throw new NotFoundError('Parent event not found')

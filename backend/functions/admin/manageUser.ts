@@ -3,8 +3,8 @@ import { successResponse, errorResponse } from '../../src/utils/response'
 import { verifyAuthHeader } from '../../src/utils/jwt'
 import { updateItem, deleteItem } from '../../src/utils/dynamodb'
 import { logAdminAction } from '../../src/utils/audit'
-
-const USERS_TABLE = process.env.USERS_TABLE!
+import { enforceRateLimit, rateLimitIdentity } from '../../src/middleware/rateLimit'
+import { getEnv } from '../../src/config/env'
 
 export const handler = async (
     event: APIGatewayProxyEvent
@@ -14,6 +14,16 @@ export const handler = async (
         if (!authHeader) return errorResponse('Authorization header is required', 401);
         const payload = verifyAuthHeader(authHeader);
         if (!payload || payload.role !== 'admin') return errorResponse('Forbidden: Admin access required', 403);
+
+        const env = getEnv()
+        const USERS_TABLE = env.USERS_TABLE
+
+        await enforceRateLimit({
+            endpoint: 'admin:manage-user',
+            identity: rateLimitIdentity(event),
+            max: 20,
+            windowSec: 60,
+        })
 
         if (!event.body) {
             return errorResponse('Missing body', 400)

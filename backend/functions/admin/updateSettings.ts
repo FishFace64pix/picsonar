@@ -4,8 +4,9 @@ import { successResponse, errorResponse } from '../../src/utils/response'
 import { verifyAuthHeader } from '../../src/utils/jwt'
 import { putItem } from '../../src/utils/dynamodb'
 import { logAdminAction } from '../../src/utils/audit'
+import { enforceRateLimit, rateLimitIdentity } from '../../src/middleware/rateLimit'
+import { getEnv } from '../../src/config/env'
 
-const SYSTEM_STATS_TABLE = process.env.SYSTEM_STATS_TABLE!
 const SETTINGS_KEY = 'SYSTEM_SETTINGS'
 
 const SettingsSchema = z.object({
@@ -24,6 +25,17 @@ export const handler = async (
         if (!authHeader) return errorResponse('Authorization header is required', 401);
         const payload = verifyAuthHeader(authHeader);
         if (!payload || payload.role !== 'admin') return errorResponse('Forbidden: Admin access required', 403);
+
+        const env = getEnv()
+        const SYSTEM_STATS_TABLE = (env as any).SYSTEM_STATS_TABLE as string | undefined
+        if (!SYSTEM_STATS_TABLE) return errorResponse('Settings table not configured', 503)
+
+        await enforceRateLimit({
+            endpoint: 'admin:settings-write',
+            identity: rateLimitIdentity(event),
+            max: 10,
+            windowSec: 60,
+        })
 
         if (!event.body) {
             return errorResponse('Missing body', 400)
