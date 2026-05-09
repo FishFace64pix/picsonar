@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
-import { successResponse, errorResponse } from '../../src/utils/response'
+import { successResponse, errorResponse, preflightResponse } from '../../src/utils/response'
 import { verifyAuthHeader } from '../../src/utils/jwt'
 import { scanTablePage } from '../../src/utils/dynamodb'
 import { enforceRateLimit, rateLimitIdentity } from '../../src/middleware/rateLimit'
@@ -8,11 +8,13 @@ import { getEnv } from '../../src/config/env'
 export const handler = async (
     event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
+    const requestOrigin = event.headers?.origin ?? event.headers?.Origin
+    if (event.httpMethod === 'OPTIONS') return preflightResponse(requestOrigin)
     try {
         const authHeader = event.headers.Authorization || event.headers.authorization;
-        if (!authHeader) return errorResponse('Authorization header is required', 401);
+        if (!authHeader) return errorResponse('Authorization header is required', 401, { requestOrigin });
         const payload = verifyAuthHeader(authHeader);
-        if (!payload || payload.role !== 'admin') return errorResponse('Forbidden: Admin access required', 403);
+        if (!payload || payload.role !== 'admin') return errorResponse('Forbidden: Admin access required', 403, { requestOrigin });
 
         const env = getEnv()
         const USERS_TABLE = env.USERS_TABLE
@@ -76,11 +78,11 @@ export const handler = async (
             totalPhotos,
             totalFaces,
             totalStorageGB,
-            todaysRevenue: todaysRevenue / 100, // Convert cents to main unit if needed, assuming amount is in smallest unit
+            todaysRevenue: todaysRevenue / 100,
             currency: 'RON'
-        })
+        }, 200, { requestOrigin })
     } catch (error: any) {
         console.error('Error getting admin stats:', error)
-        return errorResponse(error.message || 'Failed to get admin stats', 500)
+        return errorResponse(error.message || 'Failed to get admin stats', 500, { requestOrigin })
     }
 }

@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
-import { successResponse, errorResponse } from '../../src/utils/response'
+import { successResponse, errorResponse, preflightResponse } from '../../src/utils/response'
 import { verifyAuthHeader } from '../../src/utils/jwt'
 import { scanTablePage } from '../../src/utils/dynamodb'
 import { enforceRateLimit, rateLimitIdentity } from '../../src/middleware/rateLimit'
@@ -10,11 +10,13 @@ const MAX_ITEMS = 2000
 export const handler = async (
     event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
+    const requestOrigin = event.headers?.origin ?? event.headers?.Origin
+    if (event.httpMethod === 'OPTIONS') return preflightResponse(requestOrigin)
     try {
         const authHeader = event.headers.Authorization || event.headers.authorization
-        if (!authHeader) return errorResponse('Authorization header is required', 401)
+        if (!authHeader) return errorResponse('Authorization header is required', 401, { requestOrigin })
         const payload = verifyAuthHeader(authHeader)
-        if (!payload || payload.role !== 'admin') return errorResponse('Forbidden: Admin access required', 403)
+        if (!payload || payload.role !== 'admin') return errorResponse('Forbidden: Admin access required', 403, { requestOrigin })
 
         const env = getEnv()
 
@@ -54,9 +56,9 @@ export const handler = async (
 
         enrichedEvents.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
-        return successResponse(enrichedEvents)
+        return successResponse(enrichedEvents, 200, { requestOrigin })
     } catch (error: any) {
         console.error('Error getting admin events:', error)
-        return errorResponse(error.message || 'Failed to list events', 500)
+        return errorResponse(error.message || 'Failed to list events', 500, { requestOrigin })
     }
 }

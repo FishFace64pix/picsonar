@@ -1,6 +1,6 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 import { z } from 'zod'
-import { successResponse, errorResponse } from '../../src/utils/response'
+import { successResponse, errorResponse, preflightResponse } from '../../src/utils/response'
 import { verifyAuthHeader } from '../../src/utils/jwt'
 import { putItem } from '../../src/utils/dynamodb'
 import { logAdminAction } from '../../src/utils/audit'
@@ -20,15 +20,17 @@ const SettingsSchema = z.object({
 export const handler = async (
     event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
+    const requestOrigin = event.headers?.origin ?? event.headers?.Origin
+    if (event.httpMethod === 'OPTIONS') return preflightResponse(requestOrigin)
     try {
         const authHeader = event.headers.Authorization || event.headers.authorization;
-        if (!authHeader) return errorResponse('Authorization header is required', 401);
+        if (!authHeader) return errorResponse('Authorization header is required', 401, { requestOrigin });
         const payload = verifyAuthHeader(authHeader);
-        if (!payload || payload.role !== 'admin') return errorResponse('Forbidden: Admin access required', 403);
+        if (!payload || payload.role !== 'admin') return errorResponse('Forbidden: Admin access required', 403, { requestOrigin });
 
         const env = getEnv()
         const SYSTEM_STATS_TABLE = (env as any).SYSTEM_STATS_TABLE as string | undefined
-        if (!SYSTEM_STATS_TABLE) return errorResponse('Settings table not configured', 503)
+        if (!SYSTEM_STATS_TABLE) return errorResponse('Settings table not configured', 503, { requestOrigin })
 
         await enforceRateLimit({
             endpoint: 'admin:settings-write',
@@ -38,19 +40,19 @@ export const handler = async (
         })
 
         if (!event.body) {
-            return errorResponse('Missing body', 400)
+            return errorResponse('Missing body', 400, { requestOrigin })
         }
 
         let raw: unknown
         try {
             raw = JSON.parse(event.body)
         } catch {
-            return errorResponse('Invalid JSON body', 400)
+            return errorResponse('Invalid JSON body', 400, { requestOrigin })
         }
 
         const parsed = SettingsSchema.safeParse(raw)
         if (!parsed.success) {
-            return errorResponse(`Invalid settings: ${parsed.error.issues.map(i => i.message).join(', ')}`, 400)
+            return errorResponse(`Invalid settings: ${parsed.error.issues.map(i => i.message).join(', ')}`, 400, { requestOrigin })
         }
 
         const newSettings = parsed.data
@@ -66,9 +68,9 @@ export const handler = async (
 
         await logAdminAction(payload.userId, 'update_settings', newSettings)
 
-        return successResponse({ message: 'Settings updated' })
+        return successResponse({ message: 'Settings updated' }, 200, { requestOrigin })
     } catch (error: any) {
         console.error('Error updating settings:', error)
-        return errorResponse(error.message || 'Failed to update settings', 500)
+        return errorResponse(error.message || 'Failed to update settings', 500, { requestOrigin })
     }
 }

@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
-import { successResponse, errorResponse } from '../../src/utils/response'
+import { successResponse, errorResponse, preflightResponse } from '../../src/utils/response'
 import { verifyAuthHeader } from '../../src/utils/jwt'
 import { scanTablePage } from '../../src/utils/dynamodb'
 import { enforceRateLimit, rateLimitIdentity } from '../../src/middleware/rateLimit'
@@ -8,15 +8,17 @@ import { getEnv } from '../../src/config/env'
 export const handler = async (
     event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
+    const requestOrigin = event.headers?.origin ?? event.headers?.Origin
+    if (event.httpMethod === 'OPTIONS') return preflightResponse(requestOrigin)
     try {
         const authHeader = event.headers.Authorization || event.headers.authorization
-        if (!authHeader) return errorResponse('Authorization header is required', 401)
+        if (!authHeader) return errorResponse('Authorization header is required', 401, { requestOrigin })
         const payload = verifyAuthHeader(authHeader)
-        if (!payload || payload.role !== 'admin') return errorResponse('Forbidden: Admin access required', 403)
+        if (!payload || payload.role !== 'admin') return errorResponse('Forbidden: Admin access required', 403, { requestOrigin })
 
         const env = getEnv()
         const AUDIT_LOGS_TABLE = (env as any).AUDIT_LOGS_TABLE as string | undefined
-        if (!AUDIT_LOGS_TABLE) return successResponse([])
+        if (!AUDIT_LOGS_TABLE) return successResponse([], 200, { requestOrigin })
 
         await enforceRateLimit({
             endpoint: 'admin:logs',
@@ -29,9 +31,9 @@ export const handler = async (
 
         logs.sort((a: any, b: any) => b.timestamp - a.timestamp)
 
-        return successResponse(logs.slice(0, 100))
+        return successResponse(logs.slice(0, 100), 200, { requestOrigin })
     } catch (error: any) {
         console.error('Error getting audit logs:', error)
-        return errorResponse(error.message || 'Failed to get logs', 500)
+        return errorResponse(error.message || 'Failed to get logs', 500, { requestOrigin })
     }
 }
