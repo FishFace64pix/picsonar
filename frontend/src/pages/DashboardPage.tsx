@@ -10,11 +10,14 @@ import { PACKAGES } from '@picsonar/shared/constants'
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import toast from 'react-hot-toast'
+import { authApi } from '../api/auth'
 
 export default function DashboardPage() {
   const { t } = useTranslation()
   const { user, loading: authLoading } = useAuth()
   const navigate = useNavigate()
+  const [resendingVerification, setResendingVerification] = useState(false)
   const queryClient = useQueryClient()
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showHistoryModal, setShowHistoryModal] = useState(false)
@@ -107,6 +110,18 @@ export default function DashboardPage() {
     setShowCreateModal(true)
   }
 
+  const handleResendVerification = async () => {
+    setResendingVerification(true)
+    try {
+      await authApi.resendVerificationEmail()
+      toast.success('Verification email sent — check your inbox.')
+    } catch {
+      toast.error('Could not send verification email. Please try again shortly.')
+    } finally {
+      setResendingVerification(false)
+    }
+  }
+
   const handleMockAddCredits = () => {
     // Mock credit-add is a dev-only affordance. With localStorage persistence
     // removed, there is no cross-refresh mock mutation anymore. In dev mode
@@ -128,6 +143,28 @@ export default function DashboardPage() {
       <Navbar />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-28">
+        {user && (user as any).emailVerified === false && (
+          <div className="mb-6 flex items-center justify-between gap-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-5 py-4">
+            <div className="flex items-center gap-3">
+              <svg className="h-5 w-5 shrink-0 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+              <p className="text-sm text-yellow-200">
+                <span className="font-semibold">Your email is not verified.</span>{' '}
+                Check your inbox for the verification link we sent when you signed up.
+              </p>
+            </div>
+            <button
+              onClick={handleResendVerification}
+              disabled={resendingVerification}
+              className="shrink-0 rounded-lg border border-yellow-500/40 px-4 py-1.5 text-sm font-medium text-yellow-300 hover:bg-yellow-500/20 disabled:opacity-50 transition-colors"
+            >
+              {resendingVerification ? 'Sending…' : 'Resend email'}
+            </button>
+          </div>
+        )}
+
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
           <div>
             <h1 className="text-3xl font-bold text-white mb-2">{t('dashboard.title')}</h1>

@@ -51,7 +51,7 @@ export default function RegisterPage() {
         dpaAccepted: true,
         immediateDeliveryConsent: true,
       })
-      navigate('/dashboard')
+      navigate('/verify-email-pending')
     } catch (err: any) {
       setError(err.response?.data?.error?.message || err.response?.data?.message || 'Registration failed. Please try again.')
     } finally {

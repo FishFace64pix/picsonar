@@ -52,20 +52,31 @@ export const handler = withHandler(async (event: APIGatewayProxyEvent, ctx) => {
   const tokenHash = hashToken(token)
 
   // Look up by the token hash. We don't have a GSI on this column (it's a
-  // one-shot operation), so a bounded Scan with a FilterExpression is
-  // acceptable — the rate limit above keeps the Scan cost negligible.
-  const { items } = await scanTablePage({
-    tableName: env.USERS_TABLE,
-    filterExpression: 'emailVerifyTokenHash = :h',
-    expressionAttributeValues: { ':h': tokenHash },
-    limit: 1,
-  })
+  // one-shot operation), so a paginated Scan with a FilterExpression is used.
+  // NOTE: DynamoDB Limit applies BEFORE FilterExpression, so we must NOT set
+  // limit:1 — that would evaluate only the first item and miss all others.
+  // We page through the whole table until we find the matching hash.
+  let foundUser: any = null
+  let cursor: string | undefined = undefined
+  do {
+    const page: { items: any[]; nextCursor?: string } = await scanTablePage({
+      tableName: env.USERS_TABLE,
+      filterExpression: 'emailVerifyTokenHash = :h',
+      expressionAttributeValues: { ':h': tokenHash },
+      cursor,
+    })
+    if (page.items.length > 0) {
+      foundUser = page.items[0]
+      break
+    }
+    cursor = page.nextCursor
+  } while (cursor)
 
-  if (items.length === 0) {
+  if (!foundUser) {
     throw new AuthError('Verification link is invalid')
   }
 
-  const user = items[0]
+  const user = foundUser
   const expiry = user.emailVerifyTokenExpiry
     ? new Date(user.emailVerifyTokenExpiry).getTime()
     : 0

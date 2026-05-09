@@ -27,6 +27,7 @@ const RegisterPage = lazy(() => import('./pages/RegisterPage'))
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'))
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
 const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage'))
+const VerifyEmailPendingPage = lazy(() => import('./pages/VerifyEmailPendingPage'))
 
 // Main app pages.
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
@@ -137,6 +138,7 @@ function App() {
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/verify-email" element={<VerifyEmailPage />} />
+            <Route path="/verify-email-pending" element={<ProtectedRoute><VerifyEmailPendingPage /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
             <Route path="/event/:eventId" element={<ProtectedRoute><EventPage /></ProtectedRoute>} />
             <Route path="/guest/:eventId" element={<GuestScanPage />} />
