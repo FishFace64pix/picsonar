@@ -22,9 +22,9 @@ export default function AdminFaceUsagePage() {
     }
 
     const totalFaces = events.reduce((acc, e) => acc + (e.faceCount || 0), 0)
-    // Approx Rekognition IndexFaces pricing: $0.001 per image? Or $1.00 per 1000 images processed?
-    // Let's assume an arbitrary cost calculation or just show counts.
-    const estimatedCost = (totalFaces / 1000) * 1.0
+    const totalPhotosProcessed = events.reduce((acc, e) => acc + (e.photoCount || 0), 0)
+    // Rekognition IndexFaces: $1.00 per 1,000 *images* processed (not faces found).
+    const estimatedCost = totalPhotosProcessed * 0.001
 
     if (loading) {
         return (
@@ -47,6 +47,7 @@ export default function AdminFaceUsagePage() {
                 <div className="glass-panel p-6">
                     <h3 className="text-gray-400 text-sm font-medium uppercase mb-2">Est. API Cost</h3>
                     <div className="text-4xl font-bold text-pink-500">${estimatedCost.toFixed(2)}</div>
+                    <p className="text-xs text-gray-500 mt-1">{totalPhotosProcessed.toLocaleString()} fotoğraf × $0.001</p>
                 </div>
             </div>
 
