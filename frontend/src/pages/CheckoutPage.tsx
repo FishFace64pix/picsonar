@@ -134,7 +134,7 @@ const CheckoutForm = ({ packageId, type, quantity, billingData, onPaymentSuccess
 }
 
 const CheckoutPage = () => {
-    const { t } = useTranslation()
+    const { t, i18n } = useTranslation()
     const { user } = useAuth()
     const navigate = useNavigate()
     const [billingData, setBillingData] = useState<BillingFormData | null>(null)
@@ -322,7 +322,7 @@ const CheckoutPage = () => {
                                 </div>
                             )}
 
-                            <Elements stripe={stripePromise}>
+                            <Elements stripe={stripePromise} options={{ locale: i18n.language === 'ro' ? 'ro' : 'en' }}>
                                 <CheckoutForm
                                     packageId={packageId}
                                     type={type}
