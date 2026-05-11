@@ -40,6 +40,7 @@ import {
   type BillingRecord,
 } from '../../src/utils/billing'
 import { generateAndUploadInvoice } from '../../src/utils/invoice'
+import { createSmartBillInvoice, getSmartBillInvoicePdf } from '../../src/utils/smartbill'
 import { sendEmail } from '../../src/utils/email'
 import { getInvoiceEmailTemplate } from '../../src/email/templates/invoiceTemplate'
 import { getPaymentFailedTemplate } from '../../src/email/templates/paymentFailedTemplate'
@@ -235,50 +236,95 @@ async function handlePaymentSucceeded(
     // Keep going — we still issue the invoice + email; ops triages.
   }
 
-  // ---- Local PDF invoice (muhasebeci handles ANAF e-Factura manually)
+  // ---- SmartBill invoice (falls back to local PDF if SmartBill not configured)
   let invoicePdfBuffer: Buffer | null = null
   let invoiceNumberForEmail = orderId
+
+  const sbUsername = env.SMARTBILL_USERNAME
+  const sbToken = env.SMARTBILL_TOKEN
+  const sbCif = env.SMARTBILL_CIF
+  const useSmartBill = !!(sbUsername && sbToken && sbCif)
 
   try {
     const pkg = (PACKAGES as any)[packageId]
     const productName = pkg?.name ?? type ?? 'PicSonar credit'
-    const invoiceData = {
-      orderId,
-      date: new Date().toLocaleDateString('ro-RO'),
-      companyName: billingData.companyName,
-      cui: billingData.cui,
-      address: `${billingData.street}, ${billingData.city}, ${billingData.country}`,
-      packageName: productName,
-      amount: amountMinor / 100,
-      currency,
-    }
-    const s3Key = await generateAndUploadInvoice(invoiceData)
 
-    await updateItem(
-      env.ORDERS_TABLE,
-      { orderId },
-      'set invoiceStatus = :status, invoiceProvider = :prov, invoiceNumber = :num, invoiceS3Key = :key',
-      {
-        ':status': 'issued',
-        ':prov': 'local-pdf',
-        ':num': orderId,
-        ':key': s3Key,
-      },
-    )
+    if (useSmartBill) {
+      const sbResult = await createSmartBillInvoice({
+        username: sbUsername!,
+        token: sbToken!,
+        sellerCif: sbCif!,
+        seriesName: 'PS',
+        clientName: billingData.companyName,
+        clientCif: billingData.cui || undefined,
+        clientAddress: `${billingData.street}, ${billingData.city}, ${billingData.country}`,
+        clientEmail: billingData.billingEmail || undefined,
+        isVatPayer: !!billingData.cui,
+        issueDate: new Date().toISOString().slice(0, 10),
+        productName,
+        amountWithVatRON: amountMinor / 100,
+        currency,
+        orderId,
+      })
 
-    const s3 = new S3Client({ region: env.AWS_REGION })
-    const s3Res = await s3.send(
-      new GetObjectCommand({
-        Bucket: env.INVOICES_BUCKET ?? '',
-        Key: s3Key,
-      }),
-    )
-    if (s3Res.Body) {
-      const chunks: Buffer[] = []
-      for await (const chunk of s3Res.Body as any) chunks.push(chunk)
-      invoicePdfBuffer = Buffer.concat(chunks)
+      invoiceNumberForEmail = `${sbResult.seriesName}${sbResult.invoiceNumber}`
+
+      await updateItem(
+        env.ORDERS_TABLE,
+        { orderId },
+        'set invoiceStatus = :status, invoiceProvider = :prov, invoiceNumber = :num',
+        {
+          ':status': 'issued',
+          ':prov': 'smartbill',
+          ':num': invoiceNumberForEmail,
+        },
+      )
+
+      // Fetch PDF from SmartBill to attach to email
+      try {
+        invoicePdfBuffer = await getSmartBillInvoicePdf(
+          sbUsername!,
+          sbToken!,
+          sbCif!,
+          sbResult.seriesName,
+          sbResult.invoiceNumber,
+        )
+      } catch (pdfErr) {
+        log.warn('smartbill.pdf_fetch_failed', { orderId, err: (pdfErr as Error).message })
+      }
+    } else {
+      // Fallback: local PDF
+      const invoiceData = {
+        orderId,
+        date: new Date().toLocaleDateString('ro-RO'),
+        companyName: billingData.companyName,
+        cui: billingData.cui,
+        address: `${billingData.street}, ${billingData.city}, ${billingData.country}`,
+        packageName: productName,
+        amount: amountMinor / 100,
+        currency,
+      }
+      const s3Key = await generateAndUploadInvoice(invoiceData)
+
+      await updateItem(
+        env.ORDERS_TABLE,
+        { orderId },
+        'set invoiceStatus = :status, invoiceProvider = :prov, invoiceNumber = :num, invoiceS3Key = :key',
+        { ':status': 'issued', ':prov': 'local-pdf', ':num': orderId, ':key': s3Key },
+      )
+
+      const s3 = new S3Client({ region: env.AWS_REGION })
+      const s3Res = await s3.send(
+        new GetObjectCommand({ Bucket: env.INVOICES_BUCKET ?? '', Key: s3Key }),
+      )
+      if (s3Res.Body) {
+        const chunks: Buffer[] = []
+        for await (const chunk of s3Res.Body as any) chunks.push(chunk)
+        invoicePdfBuffer = Buffer.concat(chunks)
+      }
     }
-    emitMetric('InvoiceIssued', 1, 'Count', { currency })
+
+    emitMetric('InvoiceIssued', 1, 'Count', { currency, provider: useSmartBill ? 'smartbill' : 'local-pdf' })
   } catch (invoiceErr) {
     log.error('stripe.webhook.invoice_failed', {
       orderId,

@@ -35,11 +35,14 @@ const EnvSchema = z.object({
   // Rekognition
   REKOGNITION_COLLECTION_ID: z.string().min(1),
 
-  // Stripe — sole payment rail. All Netopia / Oblio integration was removed
-  // in favour of Stripe + an accountant who handles monthly ANAF e-Factura
-  // submission from the Stripe payout export.
+  // Stripe
   STRIPE_SECRET_KEY: z.string().startsWith('sk_'),
   STRIPE_WEBHOOK_SECRET: z.string().startsWith('whsec_'),
+
+  // SmartBill e-invoicing
+  SMARTBILL_USERNAME: z.string().email().optional(),
+  SMARTBILL_TOKEN: z.string().min(1).optional(),
+  SMARTBILL_CIF: z.string().min(1).optional(),
 
   // Email
   SMTP_HOST: z.string().min(1),

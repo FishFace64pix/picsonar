@@ -55,6 +55,9 @@ provider:
     EMAIL_FROM_NAME: ${env:EMAIL_FROM_NAME, 'PicSonar'}
     STRIPE_SECRET_KEY: ${env:STRIPE_SECRET_KEY}
     STRIPE_WEBHOOK_SECRET: ${env:STRIPE_WEBHOOK_SECRET}
+    SMARTBILL_USERNAME: ${env:SMARTBILL_USERNAME}
+    SMARTBILL_TOKEN: ${env:SMARTBILL_TOKEN}
+    SMARTBILL_CIF: ${env:SMARTBILL_CIF}
     INVOICES_BUCKET: ${self:custom.invoicesBucket}
   apiGateway:
     binaryMediaTypes:
