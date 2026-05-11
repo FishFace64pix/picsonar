@@ -20,7 +20,9 @@ export interface SmartBillInvoiceParams {
   // Customer
   clientName: string
   clientCif?: string
-  clientAddress?: string
+  clientStreet?: string
+  clientCity?: string
+  clientCountry?: string
   clientEmail?: string
   isVatPayer?: boolean
 
@@ -100,7 +102,9 @@ export async function createSmartBillInvoice(
     client: {
       name: params.clientName,
       vatCode: params.clientCif ?? '',
-      address: params.clientAddress ?? '',
+      address: params.clientStreet ?? '',
+      city: params.clientCity ?? '',
+      country: params.clientCountry ?? 'Romania',
       email: params.clientEmail ?? '',
       isTaxPayer: params.isVatPayer ?? !!params.clientCif,
       saveToDb: true,
@@ -123,6 +127,7 @@ export async function createSmartBillInvoice(
         taxName: 'Normala',
         taxPercentage: VAT_RATE,
         isDiscount: false,
+        isService: true,
         saveToDb: false,
       },
     ],
