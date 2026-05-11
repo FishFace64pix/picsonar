@@ -5,8 +5,10 @@ import { eventsApi } from '../api/events'
 import { Event, Face, Photo } from '../types'
 import PhotoUpload from '../components/PhotoUpload'
 import Navbar from '../components/Navbar'
+import { useTranslation } from 'react-i18next'
 
 export default function EventPage() {
+  const { t } = useTranslation()
   const { eventId } = useParams<{ eventId: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -110,7 +112,7 @@ export default function EventPage() {
     return (
       <div className="min-h-screen">
         <Navbar />
-        <div className="pt-32 text-center text-white">Event not found</div>
+        <div className="pt-32 text-center text-white">{t('eventPage.notFound')}</div>
       </div>
     )
   }
@@ -130,7 +132,7 @@ export default function EventPage() {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
-              Back to Dashboard
+              {t('eventPage.backToDashboard')}
             </button>
             <h1 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400 mb-2">
               {event.eventName}
@@ -167,17 +169,17 @@ export default function EventPage() {
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-3">
               <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-              <span className="text-xs font-black text-gray-400 uppercase tracking-widest">System Online</span>
+              <span className="text-xs font-black text-gray-400 uppercase tracking-widest">{t('eventPage.systemOnline')}</span>
             </div>
             <div className="h-4 w-px bg-white/10 hidden md:block"></div>
             <div className="flex items-center gap-4">
               <div>
-                <div className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">Processed</div>
+                <div className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">{t('eventPage.processed')}</div>
                 <div className="text-xl font-black text-white">{photos.length} <span className="text-xs text-gray-500 font-normal">Photos</span></div>
               </div>
               <div>
-                <div className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">Faces Indexed</div>
-                <div className="text-xl font-black text-primary-400">{faces.length} <span className="text-xs text-gray-500 font-normal">Found</span></div>
+                <div className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">{t('eventPage.facesIndexed')}</div>
+                <div className="text-xl font-black text-primary-400">{faces.length} <span className="text-xs text-gray-500 font-normal">{t('eventPage.found')}</span></div>
               </div>
             </div>
           </div>
@@ -186,11 +188,11 @@ export default function EventPage() {
             <div className="flex-grow bg-white/5 h-1.5 rounded-full overflow-hidden">
               <div className="bg-primary-500 h-full w-[100%] transition-all duration-1000"></div>
             </div>
-            <span className="text-[10px] font-bold text-gray-500 uppercase">Indexing 100%</span>
+            <span className="text-[10px] font-bold text-gray-500 uppercase">{t('eventPage.indexing100')}</span>
           </div>
 
           <div className="bg-primary-500/10 px-3 py-1 rounded-full border border-primary-500/20 text-[10px] font-black text-primary-400 uppercase tracking-widest">
-            AI Engine v4.2 Pro
+            {t('eventPage.aiEngine')}
           </div>
         </div>
       </div>
@@ -205,14 +207,14 @@ export default function EventPage() {
                   <svg className="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                   </svg>
-                  Add Photos
+                  {t('eventPage.addPhotos')}
                 </h2>
                 {user?.subscriptionStatus === 'active' || user?.subscriptionStatus === 'trial' ? (
                   <PhotoUpload eventId={eventId!} onUploadComplete={loadEventData} />
                 ) : (
                   <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-center">
-                    <p className="text-red-300 text-sm font-semibold mb-2">Upload Disabled</p>
-                    <p className="text-gray-400 text-xs">Subscription required to upload photos and process faces.</p>
+                    <p className="text-red-300 text-sm font-semibold mb-2">{t('eventPage.uploadDisabled')}</p>
+                    <p className="text-gray-400 text-xs">{t('eventPage.uploadDisabledDesc')}</p>
                   </div>
                 )}
               </div>
@@ -223,37 +225,37 @@ export default function EventPage() {
                   <div className="w-8 h-8 bg-primary-500/10 rounded-lg flex items-center justify-center">
                     <svg className="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
                   </div>
-                  <h2 className="text-lg font-bold text-white uppercase tracking-tight">GDPR & Compliance</h2>
+                  <h2 className="text-lg font-bold text-white uppercase tracking-tight">{t('eventPage.gdprCompliance')}</h2>
                 </div>
 
                 <div className="space-y-4">
                   <div className="p-3 bg-white/5 rounded-xl border border-white/5">
-                    <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Data Retention Status</div>
+                    <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">{t('eventPage.dataRetention')}</div>
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                      <span className="text-sm text-gray-300 font-medium">Auto-Deletion Scheduled</span>
+                      <span className="text-sm text-gray-300 font-medium">{t('eventPage.autoDeletion')}</span>
                     </div>
                     <div className="mt-2 text-xs text-primary-400 font-bold">
                       {event?.createdAt ? new Date(new Date(event.createdAt).getTime() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString() : 'TBD'}
                     </div>
                     <p className="text-[10px] text-gray-500 mt-1 leading-tight">
-                      All biometric vectors and photos will be irreversibly erased on this date.
+                      {t('eventPage.autoDeletionDesc')}
                     </p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
                     <div className="p-2 border border-white/5 rounded-lg text-center">
-                      <div className="text-[9px] font-black text-gray-500 uppercase tracking-tighter">Guest Consent</div>
-                      <div className="text-[10px] text-green-400 font-bold uppercase mt-0.5">Active</div>
+                      <div className="text-[9px] font-black text-gray-500 uppercase tracking-tighter">{t('eventPage.guestConsent')}</div>
+                      <div className="text-[10px] text-green-400 font-bold uppercase mt-0.5">{t('eventPage.active')}</div>
                     </div>
                     <div className="p-2 border border-white/5 rounded-lg text-center">
-                      <div className="text-[9px] font-black text-gray-500 uppercase tracking-tighter">Encryption</div>
+                      <div className="text-[9px] font-black text-gray-500 uppercase tracking-tighter">{t('eventPage.encryption')}</div>
                       <div className="text-[10px] text-primary-400 font-bold uppercase mt-0.5">AES-256</div>
                     </div>
                   </div>
 
                   <a href="/dpa" className="block text-center text-xs text-gray-500 hover:text-white underline transition-colors">
-                    View Data Processing Addendum
+                    {t('eventPage.viewDpa')}
                   </a>
                 </div>
               </div>
@@ -264,9 +266,9 @@ export default function EventPage() {
                   <div className="w-8 h-8 bg-primary-500/10 rounded-lg flex items-center justify-center">
                     <svg className="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
                   </div>
-                  <h2 className="text-lg font-bold text-white uppercase tracking-tight">Guest Link</h2>
+                  <h2 className="text-lg font-bold text-white uppercase tracking-tight">{t('eventPage.guestLink')}</h2>
                 </div>
-                <p className="text-xs text-gray-400 mb-3">Share this link so guests can find their photos.</p>
+                <p className="text-xs text-gray-400 mb-3">{t('eventPage.guestLinkDesc')}</p>
                 <div className="bg-white/5 px-3 py-2 rounded-lg text-xs text-primary-300 font-mono break-all border border-white/10 mb-3">
                   {window.location.origin}/guest/{eventId}
                 </div>
@@ -278,7 +280,7 @@ export default function EventPage() {
                   className="w-full bg-primary-600 hover:bg-primary-500 text-white py-2 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>
-                  Copy Link
+                  {t('eventPage.copyLink')}
                 </button>
               </div>
 
@@ -292,7 +294,7 @@ export default function EventPage() {
                 {/* Selection / Delete Controls */}
                 <div className="flex justify-between items-center bg-white/5 p-4 rounded-xl border border-white/10 mb-6">
                   <div className="flex items-center gap-4">
-                    <h2 className="font-bold text-white">Event Gallery</h2>
+                    <h2 className="font-bold text-white">{t('eventPage.eventGallery')}</h2>
                     <span className="text-sm text-gray-400">{photos.length} photos</span>
                   </div>
                   <div className="flex items-center gap-3">
@@ -304,7 +306,7 @@ export default function EventPage() {
                           disabled={selectedPhotos.length === 0}
                           className="px-4 py-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg text-sm font-medium hover:bg-red-500/20 disabled:opacity-50 transition-colors"
                         >
-                          Delete Selected
+                          {t('eventPage.deleteSelected')}
                         </button>
                         <button
                           onClick={() => {
@@ -313,7 +315,7 @@ export default function EventPage() {
                           }}
                           className="px-4 py-2 bg-white/10 text-white rounded-lg text-sm font-medium hover:bg-white/20 transition-colors"
                         >
-                          Cancel
+                          {t('eventPage.cancel')}
                         </button>
                       </>
                     ) : (
@@ -322,7 +324,7 @@ export default function EventPage() {
                         className="px-4 py-2 bg-white/5 text-gray-300 border border-white/10 rounded-lg text-sm font-medium hover:bg-white/10 hover:text-white transition-colors flex items-center gap-2"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                        Select & Delete
+                        {t('eventPage.selectDelete')}
                       </button>
                     )}
                   </div>
@@ -330,7 +332,7 @@ export default function EventPage() {
 
                 {photos.length === 0 ? (
                   <div className="glass-panel p-12 text-center border-dashed border-2 border-white/10">
-                    <p className="text-gray-400">No photos uploaded yet. Start dragging files to the left.</p>
+                    <p className="text-gray-400">{t('eventPage.noPhotos')}</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -377,8 +379,8 @@ export default function EventPage() {
               <div className="animate-fade-in space-y-6">
                 <div className="flex justify-between items-center bg-white/5 p-4 rounded-xl border border-white/10">
                   <div>
-                    <h2 className="font-bold text-white">Detected People</h2>
-                    <p className="text-sm text-gray-400">{faces.length} unique faces found</p>
+                    <h2 className="font-bold text-white">{t('eventPage.detectedPeople')}</h2>
+                    <p className="text-sm text-gray-400">{faces.length} {t('eventPage.uniqueFaces')}</p>
                   </div>
                   {faces.length > 0 && (
                     <button
@@ -386,14 +388,14 @@ export default function EventPage() {
                       disabled={generatingQR}
                       className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
                     >
-                      {generatingQR ? 'Generating...' : 'Regenerate QR'}
+                      {generatingQR ? '...' : t('eventPage.regenerateQr')}
                     </button>
                   )}
                 </div>
 
                 {faces.length === 0 ? (
                   <div className="glass-panel p-12 text-center text-gray-400">
-                    Upload photos to let AI detect faces automatically.
+                    {t('eventPage.uploadToDetect')}
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">

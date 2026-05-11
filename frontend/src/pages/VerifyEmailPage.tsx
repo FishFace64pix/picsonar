@@ -10,6 +10,7 @@ import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { authApi } from '../api/auth'
 import { useAuth } from '../contexts/AuthContext'
+import { useTranslation } from 'react-i18next'
 
 type State =
   | { status: 'loading' }
@@ -17,6 +18,7 @@ type State =
   | { status: 'error'; message: string }
 
 export default function VerifyEmailPage() {
+  const { t } = useTranslation()
   const [params] = useSearchParams()
   const token = params.get('token') ?? ''
   const { user } = useAuth()
@@ -79,32 +81,32 @@ export default function VerifyEmailPage() {
               role="status"
               aria-label="Verifying email"
             />
-            <h1 className="text-xl font-semibold text-white mt-6">Verifying your email…</h1>
+            <h1 className="text-xl font-semibold text-white mt-6">{t('verifyEmail.verifying')}</h1>
           </>
         )}
 
         {state.status === 'success' && (
           <>
             <h1 className="text-2xl font-semibold text-white">
-              {state.alreadyVerified ? 'Email already confirmed' : 'Email confirmed'}
+              {state.alreadyVerified ? 'Email already confirmed' : t('verifyEmail.successTitle')}
             </h1>
             <p className="text-gray-300 mt-4">
               {state.alreadyVerified
                 ? 'This email was verified earlier. You can continue using PicSonar as normal.'
-                : 'Thanks — your email is now confirmed.'}
+                : t('verifyEmail.successDesc')}
             </p>
             <Link
               to={user ? '/dashboard' : '/login'}
               className="inline-block mt-6 bg-primary-600 hover:bg-primary-500 text-white font-medium px-5 py-2.5 rounded-lg"
             >
-              {user ? 'Go to dashboard' : 'Sign in'}
+              {user ? t('verifyEmail.goToDashboard') : t('verifyEmail.signIn')}
             </Link>
           </>
         )}
 
         {state.status === 'error' && (
           <>
-            <h1 className="text-2xl font-semibold text-white">Verification failed</h1>
+            <h1 className="text-2xl font-semibold text-white">{t('verifyEmail.failedTitle')}</h1>
             <p className="text-gray-300 mt-4">{state.message}</p>
             <div className="flex flex-col gap-3 mt-6">
               {user && (
@@ -113,14 +115,14 @@ export default function VerifyEmailPage() {
                   disabled={resending}
                   className="bg-primary-600 hover:bg-primary-500 disabled:opacity-50 text-white font-medium px-5 py-2.5 rounded-lg"
                 >
-                  {resending ? 'Sending…' : 'Send a new verification email'}
+                  {resending ? t('verifyEmail.sending') : t('verifyEmail.resendBtn')}
                 </button>
               )}
               <Link
                 to={user ? '/dashboard' : '/login'}
                 className="text-sm text-primary-400 hover:text-primary-300"
               >
-                {user ? 'Back to dashboard' : 'Sign in'}
+                {user ? t('verifyEmail.backToDashboard') : t('verifyEmail.signIn')}
               </Link>
             </div>
           </>

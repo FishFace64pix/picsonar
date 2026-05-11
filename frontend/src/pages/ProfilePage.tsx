@@ -5,8 +5,10 @@ import Footer from '../components/Footer';
 import { useAuth } from '../contexts/AuthContext';
 import { authApi } from '../api/auth';
 import { CompanyDetails } from '../types';
+import { useTranslation } from 'react-i18next';
 
 const ProfilePage: React.FC = () => {
+    const { t } = useTranslation();
     const { user, logout } = useAuth();
     const [name, setName] = useState(user?.name || 'User');
     const [currentPassword, setCurrentPassword] = useState('');
@@ -50,7 +52,7 @@ const ProfilePage: React.FC = () => {
     const handleUpdateProfile = (e: React.FormEvent) => {
         e.preventDefault();
         // Mock update
-        setMessage({ type: 'success', text: 'Profile updated successfully!' });
+        setMessage({ type: 'success', text: t('profilePage.profileUpdated') });
         setTimeout(() => setMessage(null), 3000);
     };
 
@@ -58,11 +60,11 @@ const ProfilePage: React.FC = () => {
         e.preventDefault();
         try {
             await authApi.updateProfile(companyDetails);
-            setMessage({ type: 'success', text: 'Billing information updated successfully!' });
+            setMessage({ type: 'success', text: t('profilePage.billingUpdated') });
             setTimeout(() => setMessage(null), 3000);
         } catch (error) {
             console.error(error);
-            setMessage({ type: 'error', text: 'Failed to update billing information.' });
+            setMessage({ type: 'error', text: t('profilePage.billingFailed') });
         }
     };
 
@@ -70,10 +72,10 @@ const ProfilePage: React.FC = () => {
         e.preventDefault();
         // Mock password change
         if (newPassword.length < 6) {
-            setMessage({ type: 'error', text: 'Password must be at least 6 characters long.' });
+            setMessage({ type: 'error', text: t('profilePage.passwordMin') });
             return;
         }
-        setMessage({ type: 'success', text: 'Password changed successfully!' });
+        setMessage({ type: 'success', text: t('profilePage.passwordChanged') });
         setCurrentPassword('');
         setNewPassword('');
         setTimeout(() => setMessage(null), 3000);
@@ -95,7 +97,7 @@ const ProfilePage: React.FC = () => {
                             <p className="text-gray-400 text-sm mb-6">{user?.email}</p>
 
                             <button onClick={logout} className="btn-ghost w-full text-sm border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300">
-                                Sign Out
+                                {t('navbar.signOut')}
                             </button>
                         </div>
                     </div>
@@ -112,11 +114,11 @@ const ProfilePage: React.FC = () => {
                         <div className="glass-panel p-8 animate-slide-up">
                             <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
                                 <svg className="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                                Profile Information
+                                {t('profilePage.profileInfo')}
                             </h3>
                             <form onSubmit={handleUpdateProfile} className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-400 mb-1">Full Name</label>
+                                    <label className="block text-sm font-medium text-gray-400 mb-1">{t('profilePage.fullName')}</label>
                                     <input
                                         type="text"
                                         value={name}
@@ -125,17 +127,17 @@ const ProfilePage: React.FC = () => {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-400 mb-1">Email Address</label>
+                                    <label className="block text-sm font-medium text-gray-400 mb-1">{t('profilePage.emailAddress')}</label>
                                     <input
                                         type="email"
                                         value={user?.email || ''}
                                         className="input-field opacity-50 cursor-not-allowed"
                                         disabled
                                     />
-                                    <p className="text-xs text-gray-500 mt-1">Email cannot be changed.</p>
+                                    <p className="text-xs text-gray-500 mt-1">{t('profilePage.emailCantChange')}</p>
                                 </div>
                                 <div className="pt-2">
-                                    <button type="submit" className="btn-primary px-8">Save Profile</button>
+                                    <button type="submit" className="btn-primary px-8">{t('profilePage.saveProfile')}</button>
                                 </div>
                             </form>
                         </div>
@@ -144,11 +146,11 @@ const ProfilePage: React.FC = () => {
                         <div className="glass-panel p-8 animate-slide-up" style={{ animationDelay: '0.05s' }}>
                             <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
                                 <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
-                                Billing Information (Romania)
+                                {t('profilePage.billingInfo')}
                             </h3>
                             <form onSubmit={handleUpdateBilling} className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-400 mb-1">Company Name</label>
+                                    <label className="block text-sm font-medium text-gray-400 mb-1">{t('profilePage.companyName')}</label>
                                     <input
                                         type="text"
                                         value={companyDetails.companyName}
@@ -159,7 +161,7 @@ const ProfilePage: React.FC = () => {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-400 mb-1">CUI / CIF</label>
+                                    <label className="block text-sm font-medium text-gray-400 mb-1">{t('profilePage.cuiCif')}</label>
                                     <input
                                         type="text"
                                         value={companyDetails.cui}
@@ -181,12 +183,12 @@ const ProfilePage: React.FC = () => {
                                             <div className={`w-10 h-6 rounded-full transition-colors ${companyDetails.vatPayer ? 'bg-primary-600' : 'bg-white/10'}`}></div>
                                             <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${companyDetails.vatPayer ? 'translate-x-4' : ''}`}></div>
                                         </div>
-                                        <span className="ml-3 text-sm font-medium text-gray-300 group-hover:text-white transition-colors">VAT Payer</span>
+                                        <span className="ml-3 text-sm font-medium text-gray-300 group-hover:text-white transition-colors">{t('profilePage.vatPayer')}</span>
                                     </label>
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-400 mb-1">Country</label>
+                                    <label className="block text-sm font-medium text-gray-400 mb-1">{t('profilePage.country')}</label>
                                     <select
                                         value={companyDetails.country}
                                         onChange={(e) => setCompanyDetails({ ...companyDetails, country: e.target.value })}
@@ -198,7 +200,7 @@ const ProfilePage: React.FC = () => {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-400 mb-1">City</label>
+                                    <label className="block text-sm font-medium text-gray-400 mb-1">{t('profilePage.city')}</label>
                                     <input
                                         type="text"
                                         value={companyDetails.city}
@@ -210,7 +212,7 @@ const ProfilePage: React.FC = () => {
                                 </div>
 
                                 <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-400 mb-1">Street Address</label>
+                                    <label className="block text-sm font-medium text-gray-400 mb-1">{t('profilePage.streetAddress')}</label>
                                     <input
                                         type="text"
                                         value={companyDetails.street}
@@ -222,7 +224,7 @@ const ProfilePage: React.FC = () => {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-400 mb-1">Postal Code</label>
+                                    <label className="block text-sm font-medium text-gray-400 mb-1">{t('profilePage.postalCode')}</label>
                                     <input
                                         type="text"
                                         value={companyDetails.postalCode}
@@ -234,7 +236,7 @@ const ProfilePage: React.FC = () => {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-400 mb-1">Billing Email</label>
+                                    <label className="block text-sm font-medium text-gray-400 mb-1">{t('profilePage.billingEmail')}</label>
                                     <input
                                         type="email"
                                         value={companyDetails.billingEmail}
@@ -246,7 +248,7 @@ const ProfilePage: React.FC = () => {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-400 mb-1">Reg. Com. (J)</label>
+                                    <label className="block text-sm font-medium text-gray-400 mb-1">{t('profilePage.regCom')}</label>
                                     <input
                                         type="text"
                                         value={companyDetails.regCom}
@@ -257,7 +259,7 @@ const ProfilePage: React.FC = () => {
                                 </div>
                                 <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-400 mb-1">Bank Name</label>
+                                        <label className="block text-sm font-medium text-gray-400 mb-1">{t('profilePage.bankName')}</label>
                                         <input
                                             type="text"
                                             value={companyDetails.bank || ''}
@@ -267,7 +269,7 @@ const ProfilePage: React.FC = () => {
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-400 mb-1">IBAN</label>
+                                        <label className="block text-sm font-medium text-gray-400 mb-1">{t('profilePage.iban')}</label>
                                         <input
                                             type="text"
                                             value={companyDetails.iban || ''}
@@ -278,7 +280,7 @@ const ProfilePage: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="md:col-span-2 pt-2">
-                                    <button type="submit" className="btn-primary w-full md:w-auto px-8">Save Billing Info</button>
+                                    <button type="submit" className="btn-primary w-full md:w-auto px-8">{t('profilePage.saveBilling')}</button>
                                 </div>
                             </form>
                         </div>
@@ -287,7 +289,7 @@ const ProfilePage: React.FC = () => {
                         <div className="glass-panel p-8 animate-slide-up" style={{ animationDelay: '0.08s' }}>
                             <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
                                 <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                Company Branding (White Label)
+                                {t('profilePage.branding')}
                             </h3>
                             <div className="flex flex-col md:flex-row gap-8 items-start">
                                 {(user?.plan === 'studio' || user?.plan === 'agency') ? (
@@ -298,11 +300,11 @@ const ProfilePage: React.FC = () => {
                                                     {companyDetails.logoUrl ? (
                                                         <img src={companyDetails.logoUrl} alt="Company Logo" className="w-full h-full object-contain p-2" />
                                                     ) : (
-                                                        <span className="text-gray-500 text-sm">No Logo</span>
+                                                        <span className="text-gray-500 text-sm">{t('profilePage.noLogo')}</span>
                                                     )}
                                                 </div>
                                                 <label className="btn-ghost text-xs w-full mt-2 cursor-pointer text-center block">
-                                                    Upload Logo
+                                                    {t('profilePage.uploadLogo')}
                                                     <input
                                                         type="file"
                                                         accept="image/jpeg,image/png"
@@ -333,29 +335,28 @@ const ProfilePage: React.FC = () => {
 
                                                             } catch (err: any) {
                                                                 console.error(err)
-                                                                setMessage({ type: 'error', text: err.response?.status === 403 ? 'Studio or Agency plan required.' : 'Failed to upload logo.' })
+                                                                setMessage({ type: 'error', text: err.response?.status === 403 ? t('profilePage.planRequired') : 'Failed to upload logo.' })
                                                             }
                                                         }}
                                                     />
                                                 </label>
                                             </div>
                                             <p className="text-xs text-gray-500 mt-2 text-center">
-                                                This logo will appear on the guest scanning page.
+                                                {t('profilePage.logoHint')}
                                             </p>
                                         </div>
                                         <div className="flex-1">
                                             <p className="text-gray-400 text-sm leading-relaxed">
-                                                As a Venue/Agency partner, you can replace the PicSonar branding with your own.
-                                                Upload your company logo here, and it will be displayed in the header of the Guest Page for all your events.
+                                                {t('profilePage.agencyDesc')}
                                             </p>
                                         </div>
                                     </>
                                 ) : (
                                     <div className="w-full text-center py-8">
                                         <div className="bg-white/5 rounded-xl p-6 border border-white/10 max-w-lg mx-auto">
-                                            <h4 className="text-lg font-bold text-white mb-2">💎 Premium Feature</h4>
+                                            <h4 className="text-lg font-bold text-white mb-2">💎 {t('dashboard.branding.premiumFeature')}</h4>
                                             <p className="text-gray-400 text-sm mb-4">
-                                                Custom Branding (White Label) is available on <span className="text-primary-400 font-bold">Studio</span> and <span className="text-primary-400 font-bold">Agency</span> plans.
+                                                {t('dashboard.branding.premiumDesc')}
                                             </p>
                                             <Link to="/pricing" className="btn-primary inline-block px-6 py-2 text-sm">
                                                 Upgrade Now
@@ -370,11 +371,11 @@ const ProfilePage: React.FC = () => {
                         <div className="glass-panel p-8 animate-slide-up" style={{ animationDelay: '0.1s' }}>
                             <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
                                 <svg className="w-5 h-5 text-secondary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                                Security
+                                {t('profilePage.security')}
                             </h3>
                             <form onSubmit={handleChangePassword} className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-400 mb-1">Current Password</label>
+                                    <label className="block text-sm font-medium text-gray-400 mb-1">{t('profilePage.currentPassword')}</label>
                                     <input
                                         type="password"
                                         value={currentPassword}
@@ -384,7 +385,7 @@ const ProfilePage: React.FC = () => {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-400 mb-1">New Password</label>
+                                    <label className="block text-sm font-medium text-gray-400 mb-1">{t('profilePage.newPassword')}</label>
                                     <input
                                         type="password"
                                         value={newPassword}
@@ -394,7 +395,7 @@ const ProfilePage: React.FC = () => {
                                     />
                                 </div>
                                 <div className="pt-2">
-                                    <button type="submit" className="btn-ghost px-6 py-2 text-sm">Update Password</button>
+                                    <button type="submit" className="btn-ghost px-6 py-2 text-sm">{t('profilePage.updatePassword')}</button>
                                 </div>
                             </form>
                         </div>

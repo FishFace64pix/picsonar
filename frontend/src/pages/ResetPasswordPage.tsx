@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import Navbar from '../components/Navbar';
+import { useTranslation } from 'react-i18next';
 
 const ResetPasswordPage: React.FC = () => {
+    const { t } = useTranslation()
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const token = searchParams.get('token');
@@ -16,7 +18,7 @@ const ResetPasswordPage: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (password !== confirmPassword) {
-            setMessage({ type: 'error', text: 'Passwords do not match.' });
+            setMessage({ type: 'error', text: t('resetPassword.noMatch') });
             return;
         }
 
@@ -25,7 +27,7 @@ const ResetPasswordPage: React.FC = () => {
 
         try {
             await apiClient.post('/auth/reset-password', { token, newPassword: password });
-            setMessage({ type: 'success', text: 'Password has been reset successfully. Redirecting to login...' });
+            setMessage({ type: 'success', text: t('resetPassword.successMsg') });
             setTimeout(() => navigate('/login'), 3000);
         } catch (error: any) {
             setMessage({ type: 'error', text: error.response?.data?.error || 'Failed to reset password.' });
@@ -38,9 +40,9 @@ const ResetPasswordPage: React.FC = () => {
         return (
             <div className="min-h-screen bg-dark-950 flex items-center justify-center">
                 <div className="text-center">
-                    <h1 className="text-4xl font-bold text-white mb-4">Invalid Reset Link</h1>
-                    <p className="text-gray-400 mb-8">This password reset link is invalid or has expired.</p>
-                    <button onClick={() => navigate('/forgot-password')} className="btn-primary px-8">Request New Link</button>
+                    <h1 className="text-4xl font-bold text-white mb-4">{t('resetPassword.invalidTitle')}</h1>
+                    <p className="text-gray-400 mb-8">{t('resetPassword.invalidDesc')}</p>
+                    <button onClick={() => navigate('/forgot-password')} className="btn-primary px-8">{t('resetPassword.requestNew')}</button>
                 </div>
             </div>
         );
@@ -52,12 +54,12 @@ const ResetPasswordPage: React.FC = () => {
             <div className="pt-32 pb-12 px-4 flex flex-col items-center">
                 <div className="w-full max-w-md animate-slide-up">
                     <div className="glass-panel p-8 border border-white/10 shadow-2xl">
-                        <h1 className="text-3xl font-black text-white mb-2">New Password</h1>
-                        <p className="text-gray-400 mb-8 font-light">Please enter your new password below.</p>
+                        <h1 className="text-3xl font-black text-white mb-2">{t('resetPassword.newPassword')}</h1>
+                        <p className="text-gray-400 mb-8 font-light">{t('resetPassword.newPasswordDesc')}</p>
 
                         <form onSubmit={handleSubmit} className="space-y-6">
                             <div>
-                                <label className="block text-sm font-bold text-gray-400 mb-2 uppercase tracking-widest">New Password</label>
+                                <label className="block text-sm font-bold text-gray-400 mb-2 uppercase tracking-widest">{t('resetPassword.newPasswordLabel')}</label>
                                 <input
                                     type="password"
                                     required
@@ -70,7 +72,7 @@ const ResetPasswordPage: React.FC = () => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-bold text-gray-400 mb-2 uppercase tracking-widest">Confirm Password</label>
+                                <label className="block text-sm font-bold text-gray-400 mb-2 uppercase tracking-widest">{t('resetPassword.confirmPassword')}</label>
                                 <input
                                     type="password"
                                     required
@@ -96,7 +98,7 @@ const ResetPasswordPage: React.FC = () => {
                                 {loading ? (
                                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                                 ) : (
-                                    'Update Password'
+                                    t('resetPassword.updatePassword')
                                 )}
                             </button>
                         </form>

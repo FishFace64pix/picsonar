@@ -8,11 +8,51 @@ const REKO_PER_IMAGE  = 0.001        // $1.00/1,000 images (IndexFaces)
 const LAMBDA_PER_INVOCATION = 0.00025 // 512 MB × 30 s ≈ $0.00025/call
 const USD_TO_RON = 4.60              // approximate exchange rate
 
+// Stripe: 1.4% + 0.25 RON per transaction (EU card, RON)
+const STRIPE_PCT = 0.014
+const STRIPE_FLAT_RON = 0.25
+
+interface PackageDef {
+    id: string
+    name: string
+    priceRON: number
+    events: number
+    photosPerEvent: number
+    storageMonths: number
+}
+
+const PACKAGES: PackageDef[] = [
+    { id: 'starter',     name: 'Starter',     priceRON: 149,  events: 1,  photosPerEvent: 1000, storageMonths: 2 },
+    { id: 'studio',      name: 'Studio',      priceRON: 799,  events: 4,  photosPerEvent: 2000, storageMonths: 3 },
+    { id: 'agency',      name: 'Agency',      priceRON: 2499, events: 12, photosPerEvent: 4000, storageMonths: 4 },
+    { id: 'extra_event', name: 'Extra Event', priceRON: 199,  events: 1,  photosPerEvent: 2000, storageMonths: 3 },
+]
+
+function calcPackageCost(pkg: PackageDef, usagePct: number, avgPhotoMB: number) {
+    const totalPhotos = Math.round(pkg.events * pkg.photosPerEvent * usagePct)
+    const totalStorageGB = (totalPhotos * avgPhotoMB) / 1024
+
+    const rekoUSD    = totalPhotos * REKO_PER_IMAGE
+    const lambdaUSD  = totalPhotos * LAMBDA_PER_INVOCATION
+    const s3USD      = totalStorageGB * S3_PER_GB_MONTH * pkg.storageMonths
+    const awsTotalUSD = rekoUSD + lambdaUSD + s3USD
+    const awsTotalRON = awsTotalUSD * USD_TO_RON
+
+    const stripeFeeRON = pkg.priceRON * STRIPE_PCT + STRIPE_FLAT_RON
+    const totalCostRON = awsTotalRON + stripeFeeRON
+    const netRON = pkg.priceRON - totalCostRON
+    const marginPct = (netRON / pkg.priceRON) * 100
+
+    return { totalPhotos, awsTotalUSD, awsTotalRON, stripeFeeRON, totalCostRON, netRON, marginPct }
+}
+
 export default function AdminFinancePage() {
     const [finance, setFinance] = useState<AdminFinanceStats | null>(null)
     const [sysStats, setSysStats] = useState<AdminStats | null>(null)
     const [loading, setLoading] = useState(true)
     const [expanded, setExpanded] = useState<string | null>(null)
+    const [usagePct, setUsagePct] = useState(60)   // % of photo limit used
+    const [avgPhotoMB, setAvgPhotoMB] = useState(5) // average photo size in MB
 
     useEffect(() => {
         const load = async () => {
@@ -111,6 +151,87 @@ export default function AdminFinancePage() {
                     <div className="text-2xl font-bold text-white">{fmt(avgOrder)} RON</div>
                     <div className="text-xs text-gray-500 mt-1">Sipariş başına</div>
                 </div>
+            </div>
+
+            {/* ── Package profitability ── */}
+            <div className="glass-panel p-6 mb-8">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h3 className="text-lg font-bold text-white">Package Profitability Analysis</h3>
+                        <p className="text-xs text-gray-500 mt-0.5">Net revenue after AWS + Stripe costs deducted</p>
+                    </div>
+                    <div className="flex gap-6 text-sm">
+                        <label className="flex flex-col gap-1">
+                            <span className="text-gray-400 text-xs">Photo usage rate: <span className="text-white font-bold">{usagePct}%</span></span>
+                            <input
+                                type="range" min={10} max={100} step={5}
+                                value={usagePct}
+                                onChange={e => setUsagePct(Number(e.target.value))}
+                                className="accent-primary-500 w-36"
+                            />
+                        </label>
+                        <label className="flex flex-col gap-1">
+                            <span className="text-gray-400 text-xs">Avg. photo size: <span className="text-white font-bold">{avgPhotoMB} MB</span></span>
+                            <input
+                                type="range" min={1} max={15} step={1}
+                                value={avgPhotoMB}
+                                onChange={e => setAvgPhotoMB(Number(e.target.value))}
+                                className="accent-primary-500 w-36"
+                            />
+                        </label>
+                    </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead>
+                            <tr className="border-b border-white/10">
+                                <th className="p-3 text-xs font-semibold text-gray-400 uppercase">Package</th>
+                                <th className="p-3 text-xs font-semibold text-gray-400 uppercase text-right">Price</th>
+                                <th className="p-3 text-xs font-semibold text-gray-400 uppercase text-right">Events</th>
+                                <th className="p-3 text-xs font-semibold text-gray-400 uppercase text-right">Photos Processed</th>
+                                <th className="p-3 text-xs font-semibold text-gray-400 uppercase text-right">AWS Cost</th>
+                                <th className="p-3 text-xs font-semibold text-gray-400 uppercase text-right">Stripe Fee</th>
+                                <th className="p-3 text-xs font-semibold text-gray-400 uppercase text-right">Net Revenue</th>
+                                <th className="p-3 text-xs font-semibold text-gray-400 uppercase text-right">Margin</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                            {PACKAGES.map(pkg => {
+                                const c = calcPackageCost(pkg, usagePct / 100, avgPhotoMB)
+                                return (
+                                    <tr key={pkg.id} className="hover:bg-white/3 transition-colors">
+                                        <td className="p-3">
+                                            <div className="text-white font-medium">{pkg.name}</div>
+                                            <div className="text-gray-500 text-xs">{pkg.storageMonths} mo storage</div>
+                                        </td>
+                                        <td className="p-3 text-right text-white font-bold">{pkg.priceRON} RON</td>
+                                        <td className="p-3 text-right text-gray-400">{pkg.events}</td>
+                                        <td className="p-3 text-right text-gray-400">{c.totalPhotos.toLocaleString()}</td>
+                                        <td className="p-3 text-right">
+                                            <div className="text-yellow-400 font-medium">{fmt(c.awsTotalRON)} RON</div>
+                                            <div className="text-gray-500 text-xs">${fmt(c.awsTotalUSD)}</div>
+                                        </td>
+                                        <td className="p-3 text-right text-orange-400">{fmt(c.stripeFeeRON)} RON</td>
+                                        <td className="p-3 text-right">
+                                            <span className={`text-lg font-bold ${c.netRON >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                                {fmt(c.netRON)} RON
+                                            </span>
+                                        </td>
+                                        <td className="p-3 text-right">
+                                            <span className={`px-2 py-1 rounded text-xs font-bold ${c.marginPct >= 90 ? 'bg-green-500/20 text-green-400' : c.marginPct >= 70 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'}`}>
+                                                {fmt(c.marginPct, 1)}%
+                                            </span>
+                                        </td>
+                                    </tr>
+                                )
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+                <p className="text-xs text-gray-600 mt-3">
+                    * Rekognition SearchFaces (guest matching) not included · 1 USD ≈ {USD_TO_RON} RON
+                </p>
             </div>
 
             {/* ── Costs + P&L ── */}

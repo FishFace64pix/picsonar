@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { authApi } from '../api/auth'
+import { useTranslation } from 'react-i18next'
 
 interface Order {
     orderId: string
@@ -16,6 +17,7 @@ interface OrderHistoryModalProps {
 }
 
 export default function OrderHistoryModal({ onClose }: OrderHistoryModalProps) {
+    const { t } = useTranslation()
     const [orders, setOrders] = useState<Order[]>([])
     const [loading, setLoading] = useState(true)
 
@@ -65,23 +67,23 @@ export default function OrderHistoryModal({ onClose }: OrderHistoryModalProps) {
                     </svg>
                 </button>
 
-                <h2 className="text-2xl font-bold mb-6 text-white text-center">Purchase History</h2>
+                <h2 className="text-2xl font-bold mb-6 text-white text-center">{t('orderHistory.title')}</h2>
 
                 <div className="overflow-y-auto flex-1 custom-scrollbar">
                     {loading ? (
-                        <div className="text-center py-10 text-gray-400">Loading history...</div>
+                        <div className="text-center py-10 text-gray-400">{t('orderHistory.loading')}</div>
                     ) : orders.length === 0 ? (
-                        <div className="text-center py-10 text-gray-400">No purchase history found.</div>
+                        <div className="text-center py-10 text-gray-400">{t('orderHistory.empty')}</div>
                     ) : (
                         <div className="w-full overflow-x-auto">
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr className="text-gray-400 border-b border-white/10 text-sm">
-                                        <th className="p-4 font-medium">Date</th>
-                                        <th className="p-4 font-medium">Item</th>
-                                        <th className="p-4 font-medium">Amount</th>
-                                        <th className="p-4 font-medium">Status</th>
-                                        <th className="p-4 font-medium text-right">Order ID</th>
+                                        <th className="p-4 font-medium">{t('orderHistory.date')}</th>
+                                        <th className="p-4 font-medium">{t('orderHistory.item')}</th>
+                                        <th className="p-4 font-medium">{t('orderHistory.amount')}</th>
+                                        <th className="p-4 font-medium">{t('orderHistory.status')}</th>
+                                        <th className="p-4 font-medium text-right">{t('orderHistory.orderId')}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="text-sm text-gray-300">

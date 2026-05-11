@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 
 interface WebcamCaptureProps {
   onCapture: (blob: Blob) => void
 }
 
 export default function WebcamCapture({ onCapture }: WebcamCaptureProps) {
+  const { t } = useTranslation()
   const [stream, setStream] = useState<MediaStream | null>(null)
   const [error, setError] = useState<string | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -29,7 +31,7 @@ export default function WebcamCapture({ onCapture }: WebcamCaptureProps) {
       }
       setError(null)
     } catch (err) {
-      setError('Failed to access camera. Please check permissions.')
+      setError(t('webcam.cameraError'))
       console.error('Camera error:', err)
     }
   }
@@ -73,7 +75,7 @@ export default function WebcamCapture({ onCapture }: WebcamCaptureProps) {
             onClick={startCamera}
             className="bg-primary-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-700 transition-colors"
           >
-            Start Camera
+            {t('webcam.startCamera')}
           </button>
           {error && (
             <p className="mt-2 text-red-600 text-sm">{error}</p>
@@ -95,13 +97,13 @@ export default function WebcamCapture({ onCapture }: WebcamCaptureProps) {
               onClick={capturePhoto}
               className="bg-primary-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-700 transition-colors"
             >
-              Capture Photo
+              {t('webcam.capture')}
             </button>
             <button
               onClick={stopCamera}
               className="bg-gray-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-700 transition-colors"
             >
-              Stop Camera
+              {t('webcam.stopCamera')}
             </button>
           </div>
         </div>
@@ -110,4 +112,3 @@ export default function WebcamCapture({ onCapture }: WebcamCaptureProps) {
     </div>
   )
 }
-

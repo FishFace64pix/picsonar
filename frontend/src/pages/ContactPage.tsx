@@ -2,8 +2,10 @@ import React from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { apiClient } from '../api/client';
+import { useTranslation } from 'react-i18next';
 
 const ContactPage: React.FC = () => {
+    const { t } = useTranslation()
     const [name, setName] = React.useState('');
     const [email, setEmail] = React.useState('');
     const [message, setMessage] = React.useState('');
@@ -17,12 +19,12 @@ const ContactPage: React.FC = () => {
 
         try {
             await apiClient.post('/contact', { name, email, message });
-            setStatus({ type: 'success', text: "Thanks for contacting us! We'll get back to you shortly." });
+            setStatus({ type: 'success', text: t('contactPage.successMsg') });
             setName('');
             setEmail('');
             setMessage('');
         } catch (err) {
-            setStatus({ type: 'error', text: "Failed to send message. Please try again later." });
+            setStatus({ type: 'error', text: t('contactPage.errorMsg') });
         } finally {
             setLoading(false);
         }
@@ -33,27 +35,27 @@ const ContactPage: React.FC = () => {
             <Navbar />
             <div className="flex-grow pt-32 pb-20 px-4 sm:px-6 lg:px-8 max-w-2xl mx-auto w-full">
                 <div className="glass-panel p-8 md:p-12 animate-fade-in border border-white/10 shadow-2xl">
-                    <h1 className="text-3xl md:text-4xl font-bold mb-2 text-white text-center">Contact Us</h1>
+                    <h1 className="text-3xl md:text-4xl font-bold mb-2 text-white text-center">{t('contactPage.title')}</h1>
                     <p className="text-gray-400 text-center mb-10 font-light">
-                        Have a question about PicSonar? We're here to help.
+                        {t('contactPage.subtitle')}
                     </p>
 
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div>
-                            <label htmlFor="name" className="block text-sm font-bold text-gray-400 mb-2 uppercase tracking-widest">Name</label>
+                            <label htmlFor="name" className="block text-sm font-bold text-gray-400 mb-2 uppercase tracking-widest">{t('contactPage.nameLabel')}</label>
                             <input
                                 type="text"
                                 id="name"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary-500 transition-colors"
-                                placeholder="Your Name"
+                                placeholder={t('contactPage.namePlaceholder')}
                                 required
                             />
                         </div>
 
                         <div>
-                            <label htmlFor="email" className="block text-sm font-bold text-gray-400 mb-2 uppercase tracking-widest">Email</label>
+                            <label htmlFor="email" className="block text-sm font-bold text-gray-400 mb-2 uppercase tracking-widest">{t('contactPage.emailLabel')}</label>
                             <input
                                 type="email"
                                 id="email"
@@ -66,14 +68,14 @@ const ContactPage: React.FC = () => {
                         </div>
 
                         <div>
-                            <label htmlFor="message" className="block text-sm font-bold text-gray-400 mb-2 uppercase tracking-widest">Message</label>
+                            <label htmlFor="message" className="block text-sm font-bold text-gray-400 mb-2 uppercase tracking-widest">{t('contactPage.messagelabel')}</label>
                             <textarea
                                 id="message"
                                 rows={4}
                                 value={message}
                                 onChange={(e) => setMessage(e.target.value)}
                                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary-500 transition-colors resize-none"
-                                placeholder="How can we help you?"
+                                placeholder={t('contactPage.messagePlaceholder')}
                                 required
                             ></textarea>
                         </div>
@@ -91,7 +93,7 @@ const ContactPage: React.FC = () => {
                         >
                             {loading ? (
                                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                            ) : 'Send Message'}
+                            ) : t('contactPage.send')}
                         </button>
                     </form>
                 </div>

@@ -5,8 +5,10 @@ import { eventsApi } from '../api/events'
 import { Photo } from '../types'
 import Navbar from '../components/Navbar'
 import { apiClient } from '../api/client'
+import { useTranslation } from 'react-i18next'
 
 export default function GuestScanPage() {
+  const { t } = useTranslation()
   const { eventId } = useParams<{ eventId: string }>()
   const webcamRef = useRef<Webcam>(null)
   const [hasConsent, setHasConsent] = useState(false)
@@ -106,7 +108,7 @@ export default function GuestScanPage() {
       }
     } catch (error) {
       console.error('Failed to match face:', error)
-      alert('Failed to process photo')
+      alert(t('guestScan.failedProcess'))
     } finally {
       setLoading(false)
     }
@@ -129,19 +131,16 @@ export default function GuestScanPage() {
               <div className="w-20 h-20 bg-primary-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
                 <svg className="w-10 h-10 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
               </div>
-              <h1 className="text-3xl font-black text-white mb-2 uppercase tracking-tight">Privacy Check</h1>
-              <p className="text-gray-400 font-light">We need your consent to find your photos.</p>
+              <h1 className="text-3xl font-black text-white mb-2 uppercase tracking-tight">{t('guestScan.privacyCheck')}</h1>
+              <p className="text-gray-400 font-light">{t('guestScan.consentNeeded')}</p>
             </div>
 
             <div className="space-y-6 text-sm text-gray-400 leading-relaxed mb-10 bg-white/5 p-6 rounded-2xl border border-white/5">
-              <p>
-                PicSonar uses AI face search to find you in event photos.
-                To do this, we need to take a selfie and generate a <strong>facial feature vector</strong> (biometric data).
-              </p>
+              <p dangerouslySetInnerHTML={{ __html: t('guestScan.privacyText') }} />
               <ul className="space-y-2 list-disc pl-4 italic opacity-70">
-                <li>Your selfie is deleted immediately.</li>
-                <li>Your face vector is encrypted & event-only.</li>
-                <li>Data is deleted automatically after the event.</li>
+                <li>{t('guestScan.selfieDeleted')}</li>
+                <li>{t('guestScan.faceEncrypted')}</li>
+                <li>{t('guestScan.dataDeleted')}</li>
               </ul>
             </div>
 
@@ -154,7 +153,7 @@ export default function GuestScanPage() {
                   className="mt-1 w-5 h-5 rounded border-white/20 bg-white/5 text-primary-600 focus:ring-primary-500 focus:ring-offset-slate-950"
                 />
                 <span className="text-gray-300 group-hover:text-white transition-colors">
-                  I consent to special category biometric processing for photo matching.
+                  {t('guestScan.consentBiometric')}
                 </span>
               </label>
 
@@ -166,7 +165,7 @@ export default function GuestScanPage() {
                   className="mt-1 w-5 h-5 rounded border-white/20 bg-white/5 text-primary-600 focus:ring-primary-500 focus:ring-offset-slate-950"
                 />
                 <span className="text-gray-300 group-hover:text-white transition-colors">
-                  I confirm I am 16+ (or have parental/guardian consent).
+                  {t('guestScan.consentAge')}
                 </span>
               </label>
             </div>
@@ -176,18 +175,18 @@ export default function GuestScanPage() {
               disabled={!consentBiometric || !consentAge}
               className="btn-primary w-full py-5 text-xl font-black shadow-2xl shadow-primary-500/20 disabled:grayscale disabled:opacity-20 transition-all uppercase tracking-widest"
             >
-              Continue to Search →
+              {t('guestScan.continueSearch')}
             </button>
 
             <p className="mt-8 text-center text-[10px] text-gray-500 uppercase tracking-widest font-black antialiased">
-              Read our full <a href="/privacy" target="_blank" className="underline hover:text-white transition-colors">Privacy Notice</a>
+              {t('guestScan.privacyNotice')} <a href="/privacy" target="_blank" className="underline hover:text-white transition-colors">{t('guestScan.privacyLink')}</a>
             </p>
           </div>
         ) : !photo ? (
           <div className="animate-fade-in flex flex-col h-[calc(100vh-140px)]">
             <div className="text-center mb-6">
-              <h1 className="text-3xl font-black text-white mb-2 uppercase tracking-tight">Find Your Photos</h1>
-              <p className="text-gray-400 font-light tracking-wide">Take a selfie to let AI find you.</p>
+              <h1 className="text-3xl font-black text-white mb-2 uppercase tracking-tight">{t('guestScan.findPhotos')}</h1>
+              <p className="text-gray-400 font-light tracking-wide">{t('guestScan.takeSelfie')}</p>
             </div>
 
             <div className="flex-1 relative bg-black rounded-3xl overflow-hidden shadow-2xl border border-white/10 mb-8">
@@ -198,20 +197,20 @@ export default function GuestScanPage() {
                       <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center">
                         <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" /></svg>
                       </div>
-                      <p className="text-red-400 font-bold text-sm">Camera access denied</p>
-                      <p className="text-gray-400 text-xs">Allow camera access in your browser, or upload a photo instead.</p>
+                      <p className="text-red-400 font-bold text-sm">{t('guestScan.cameraDenied')}</p>
+                      <p className="text-gray-400 text-xs">{t('guestScan.allowCamera')}</p>
                       <div className="flex flex-col gap-2 w-full mt-2">
                         <button
                           onClick={() => { setCameraError(null) }}
                           className="btn-ghost py-2 text-sm w-full"
                         >
-                          Retry Camera
+                          {t('guestScan.retryCamera')}
                         </button>
                         <button
                           onClick={() => setMode('upload')}
                           className="btn-primary py-2 text-sm w-full"
                         >
-                          Upload a Photo Instead
+                          {t('guestScan.uploadInstead')}
                         </button>
                       </div>
                     </div>
@@ -221,7 +220,7 @@ export default function GuestScanPage() {
                     ref={webcamRef}
                     screenshotFormat="image/jpeg"
                     videoConstraints={videoConstraints}
-                    onUserMediaError={() => setCameraError('Camera access denied')}
+                    onUserMediaError={() => setCameraError(t('guestScan.cameraDenied'))}
                     className="absolute inset-0 w-full h-full object-cover"
                   />
                   )}
@@ -252,12 +251,12 @@ export default function GuestScanPage() {
                   <div className="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center mb-6">
                     <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                   </div>
-                  <p className="text-gray-300 mb-6">Select a photo from your gallery</p>
+                  <p className="text-gray-300 mb-6">{t('guestScan.selectFromGallery')}</p>
                   <label className="btn-primary cursor-pointer px-8 py-3">
-                    Choose Photo
+                    {t('guestScan.choosePhoto')}
                     <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
                   </label>
-                  <button onClick={() => setMode('camera')} className="mt-4 text-gray-400 hover:text-white underline">Back to Camera</button>
+                  <button onClick={() => setMode('camera')} className="mt-4 text-gray-400 hover:text-white underline">{t('guestScan.backToCamera')}</button>
                 </div>
               )}
             </div>
@@ -274,16 +273,16 @@ export default function GuestScanPage() {
               )}
             </div>
 
-            <h2 className="text-2xl font-bold text-white mb-2">Is this you?</h2>
-            <p className="text-gray-400 mb-8">We'll search for this face in the gallery.</p>
+            <h2 className="text-2xl font-bold text-white mb-2">{t('guestScan.isThisYou')}</h2>
+            <p className="text-gray-400 mb-8">{t('guestScan.searchForFace')}</p>
 
             {!loading && (
               <div className="flex flex-col gap-3">
                 <button onClick={findMatches} className="btn-primary w-full py-4 text-lg shadow-xl shadow-primary-500/20">
-                  Scan & Find Photos
+                  {t('guestScan.scanFind')}
                 </button>
                 <button onClick={reset} className="btn-ghost w-full py-3 text-gray-400">
-                  Retake Selfie
+                  {t('guestScan.retakeSelfie')}
                 </button>
               </div>
             )}
@@ -296,17 +295,17 @@ export default function GuestScanPage() {
                 <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
                   <span className="text-4xl">😔</span>
                 </div>
-                <h2 className="text-2xl font-bold text-white mb-2">No photos found</h2>
-                <p className="text-gray-400 mb-8">It seems you're not in any of the uploaded photos yet.</p>
-                <button onClick={reset} className="btn-primary w-full">Try Again</button>
+                <h2 className="text-2xl font-bold text-white mb-2">{t('guestScan.noPhotosFound')}</h2>
+                <p className="text-gray-400 mb-8">{t('guestScan.noPhotosDesc')}</p>
+                <button onClick={reset} className="btn-primary w-full">{t('guestScan.tryAgain')}</button>
               </div>
             ) : (
               <div>
                 <div className="flex flex-col gap-4 mb-8">
                   <div className="flex justify-between items-center">
-                    <h2 className="text-xl font-bold text-white tracking-tight">Found {matches.length} Photos</h2>
+                    <h2 className="text-xl font-bold text-white tracking-tight">{t('guestScan.foundPhotos', { count: matches.length })}</h2>
                     <button onClick={reset} className="text-xs font-bold text-gray-500 hover:text-white uppercase tracking-widest border border-white/5 px-4 py-2 rounded-full transition-all">
-                      New Scan
+                      {t('guestScan.newScan')}
                     </button>
                   </div>
 
@@ -323,11 +322,11 @@ export default function GuestScanPage() {
                       className="flex-1 bg-white/5 hover:bg-white/10 text-white py-3 rounded-2xl text-xs font-bold border border-white/10 transition-all flex items-center justify-center gap-2"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                      Download All
+                      {t('guestScan.downloadAll')}
                     </button>
                     <button
                       onClick={() => {
-                        const text = `Check out my photos from the event! Found using AI Face Search: ${window.location.href}`;
+                        const text = `${t('guestScan.shareText')} ${window.location.href}`;
                         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
                       }}
                       className="bg-[#25D366]/20 hover:bg-[#25D366]/30 text-[#25D366] px-6 py-3 rounded-2xl border border-[#25D366]/20 transition-all flex items-center justify-center"
@@ -345,7 +344,7 @@ export default function GuestScanPage() {
                         <div className="flex gap-2">
                           <button
                             onClick={() => {
-                              const text = `Hey! Look at this photo of me from the event! ${photo.s3Url}`;
+                              const text = `${t('guestScan.photoShareText')} ${photo.s3Url}`;
                               window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
                             }}
                             className="flex-1 bg-[#25D366] text-white p-2 rounded-xl flex items-center justify-center"
@@ -356,7 +355,7 @@ export default function GuestScanPage() {
                             onClick={() => {
                               // Instagram doesn't have a direct URL share like WA, so we copy link to clipboard
                               navigator.clipboard.writeText(photo.s3Url ?? '');
-                              alert('Photo link copied! Share it on your Instagram Story.');
+                              alert(t('guestScan.photoCopied'));
                             }}
                             className="flex-1 bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white p-2 rounded-xl flex items-center justify-center font-bold text-[10px]"
                           >
@@ -369,19 +368,19 @@ export default function GuestScanPage() {
                           className="btn-primary text-[10px] py-2 w-full text-center font-black uppercase tracking-widest"
                           target="_blank" rel="noopener noreferrer"
                         >
-                          Download
+                          {t('guestScan.download')}
                         </a>
                       </div>
                     </div>
                   ))}
                 </div>
                 <div className="mt-12 text-center pb-8 border-t border-white/5 pt-8">
-                  <p className="text-[10px] text-gray-500 uppercase tracking-widest font-black mb-4">Privacy Controls</p>
+                  <p className="text-[10px] text-gray-500 uppercase tracking-widest font-black mb-4">{t('guestScan.privacyControls')}</p>
                   <button
                     onClick={withdrawConsent}
                     className="text-xs text-red-500/50 hover:text-red-500 underline transition-colors"
                   >
-                    Withdraw consent & delete my biometric data
+                    {t('guestScan.withdrawConsent')}
                   </button>
                 </div>
               </div>

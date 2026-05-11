@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import Navbar from '../components/Navbar';
+import { useTranslation } from 'react-i18next';
 
 const ForgotPasswordPage: React.FC = () => {
+    const { t } = useTranslation()
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -14,8 +16,8 @@ const ForgotPasswordPage: React.FC = () => {
         setMessage(null);
 
         try {
-            const response = await apiClient.post('/auth/forgot-password', { email });
-            setMessage({ type: 'success', text: response.data.message });
+            await apiClient.post('/auth/forgot-password', { email });
+            setMessage({ type: 'success', text: t('forgotPassword.successDesc') });
         } catch (error: any) {
             setMessage({ type: 'error', text: error.response?.data?.error || 'Failed to process request.' });
         } finally {
@@ -29,16 +31,16 @@ const ForgotPasswordPage: React.FC = () => {
             <div className="pt-32 pb-12 px-4 flex flex-col items-center">
                 <div className="w-full max-w-md animate-slide-up">
                     <Link to="/login" className="text-gray-400 hover:text-white mb-8 inline-flex items-center gap-2 group transition-colors">
-                        <span className="group-hover:-translate-x-1 transition-transform">←</span> Back to login
+                        <span className="group-hover:-translate-x-1 transition-transform">←</span> {t('forgotPassword.backToLogin')}
                     </Link>
 
                     <div className="glass-panel p-8 border border-white/10 shadow-2xl">
-                        <h1 className="text-3xl font-black text-white mb-2">Reset Password</h1>
-                        <p className="text-gray-400 mb-8 font-light">Enter your email and we'll send you a link to reset your password.</p>
+                        <h1 className="text-3xl font-black text-white mb-2">{t('forgotPassword.title')}</h1>
+                        <p className="text-gray-400 mb-8 font-light">{t('forgotPassword.subtitle')}</p>
 
                         <form onSubmit={handleSubmit} className="space-y-6">
                             <div>
-                                <label className="block text-sm font-bold text-gray-400 mb-2 uppercase tracking-widest">Email Address</label>
+                                <label className="block text-sm font-bold text-gray-400 mb-2 uppercase tracking-widest">{t('forgotPassword.emailLabel')}</label>
                                 <input
                                     type="email"
                                     required
@@ -63,7 +65,7 @@ const ForgotPasswordPage: React.FC = () => {
                                 {loading ? (
                                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                                 ) : (
-                                    'Send Reset Link'
+                                    t('forgotPassword.sendLink')
                                 )}
                             </button>
                         </form>

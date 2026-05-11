@@ -464,7 +464,7 @@ export default function DashboardPage() {
               {availablePackages.length > 1 && (
                 <div className="mb-5">
                   <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Paket seç
+                    {t('dashboard.createModal.selectPackage')}
                   </label>
                   <div className="space-y-2">
                     {availablePackages.map(p => (
@@ -487,11 +487,11 @@ export default function DashboardPage() {
                         <div className="flex-1">
                           <div className="text-sm font-bold text-white">{p.name}</div>
                           <div className="text-xs text-gray-400">
-                            {p.limits.photoLimitPerEvent.toLocaleString()} fotoğraf · {p.limits.storageMonths} ay depolama
+                            {t('dashboard.createModal.photoStorage', { photos: p.limits.photoLimitPerEvent.toLocaleString(), months: p.limits.storageMonths })}
                           </div>
                         </div>
                         <div className="text-xs font-bold text-primary-400">
-                          {p.credits} kredi kaldı
+                          {t('dashboard.createModal.creditsLeft', { count: p.credits })}
                         </div>
                       </label>
                     ))}
@@ -503,7 +503,7 @@ export default function DashboardPage() {
               {availablePackages.length === 1 && (
                 <div className="mb-5 p-3 rounded-xl bg-white/5 border border-white/10 text-xs text-gray-400">
                   <span className="text-white font-bold">{availablePackages[0].name}</span>
-                  {' '}— {availablePackages[0].limits.photoLimitPerEvent.toLocaleString()} fotoğraf, {availablePackages[0].limits.storageMonths} ay depolama
+                  {' '}— {t('dashboard.createModal.photoStorage', { photos: availablePackages[0].limits.photoLimitPerEvent.toLocaleString(), months: availablePackages[0].limits.storageMonths })}
                 </div>
               )}
 

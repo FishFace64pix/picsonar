@@ -3,8 +3,10 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
+import { useTranslation } from 'react-i18next'
 
 export default function LoginPage() {
+  const { t } = useTranslation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -25,7 +27,7 @@ export default function LoginPage() {
       await login(email, password)
       navigate(from, { replace: true })
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Login failed. Please try again.')
+      setError(err.response?.data?.message || t('loginPage.error'))
     } finally {
       setLoading(false)
     }
@@ -36,8 +38,8 @@ export default function LoginPage() {
       <Navbar />
       <div className="flex-grow flex items-center justify-center min-h-[calc(100vh-80px)] px-4 pt-20">
         <div className="glass-panel p-8 w-full max-w-md animate-fade-in">
-          <h1 className="text-3xl font-bold text-center mb-2 text-white">Welcome Back</h1>
-          <p className="text-gray-400 text-center mb-8">Sign in to your account</p>
+          <h1 className="text-3xl font-bold text-center mb-2 text-white">{t('loginPage.title')}</h1>
+          <p className="text-gray-400 text-center mb-8">{t('loginPage.subtitle')}</p>
 
           {error && (
             <div className="bg-red-500/10 border border-red-500/20 text-red-200 px-4 py-3 rounded-xl mb-6 text-sm">
@@ -48,7 +50,7 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Email
+                {t('loginPage.email')}
               </label>
               <input
                 type="email"
@@ -63,10 +65,10 @@ export default function LoginPage() {
             <div>
               <div className="flex justify-between items-center mb-2">
                 <label className="block text-sm font-medium text-gray-300">
-                  Password
+                  {t('loginPage.password')}
                 </label>
                 <Link to="/forgot-password" className="text-xs text-primary-400 hover:text-primary-300 font-medium transition-colors">
-                  Forgot Password?
+                  {t('loginPage.forgotPassword')}
                 </Link>
               </div>
               <input
@@ -89,14 +91,14 @@ export default function LoginPage() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-              ) : 'Sign In'}
+              ) : t('loginPage.signIn')}
             </button>
           </form>
 
           <p className="mt-8 text-center text-gray-400">
-            Don't have an account?{' '}
+            {t('loginPage.noAccount')}{' '}
             <Link to="/register" className="text-primary-400 hover:text-primary-300 font-semibold transition-colors">
-              Create Account
+              {t('loginPage.createAccount')}
             </Link>
           </p>
         </div>

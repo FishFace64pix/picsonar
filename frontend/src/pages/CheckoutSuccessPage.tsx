@@ -8,8 +8,10 @@
  */
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 export default function CheckoutSuccessPage() {
+    const { t } = useTranslation()
     const [searchParams] = useSearchParams()
     const sessionId = searchParams.get('session_id')
     const [countdown, setCountdown] = useState(4)
@@ -37,12 +39,12 @@ export default function CheckoutSuccessPage() {
                     </svg>
                 </div>
 
-                <h1 className="text-4xl font-black text-white mb-4">Payment Successful!</h1>
+                <h1 className="text-4xl font-black text-white mb-4">{t('checkoutSuccess.title')}</h1>
                 <p className="text-gray-400 mb-2">
-                    Your credits have been added to your account.
+                    {t('checkoutSuccess.creditsAdded')}
                 </p>
                 <p className="text-gray-400 mb-2 text-sm">
-                    A receipt has been sent to your email address.
+                    {t('checkoutSuccess.receiptSent')}
                 </p>
 
                 {sessionId && (
@@ -52,14 +54,14 @@ export default function CheckoutSuccessPage() {
                 )}
 
                 <p className="text-gray-500 text-sm mb-8">
-                    Redirecting to your dashboard in {countdown}s…
+                    {t('checkoutSuccess.redirecting', { countdown })}
                 </p>
 
                 <Link
                     to="/dashboard"
                     className="btn-primary px-10 inline-block"
                 >
-                    Go to Dashboard Now
+                    {t('checkoutSuccess.goToDashboard')}
                 </Link>
             </div>
         </div>

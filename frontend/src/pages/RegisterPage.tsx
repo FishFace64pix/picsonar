@@ -3,8 +3,10 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
+import { useTranslation } from 'react-i18next'
 
 export default function RegisterPage() {
+  const { t } = useTranslation()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
@@ -30,14 +32,14 @@ export default function RegisterPage() {
       !dpaAccepted ||
       !immediateDeliveryConsent
     ) {
-      setError('Please accept all legal documents to continue.')
+      setError(t('registerPage.allLegal'))
       return
     }
 
     // Romanian phone validation check
     const phoneRegex = /^(\+40|0)7[0-9]{8}$/
     if (!phoneRegex.test(phone)) {
-      setError('Please enter a valid Romanian phone number (e.g. 07xx xxx xxx)')
+      setError(t('registerPage.invalidPhone'))
       return
     }
 
@@ -53,7 +55,7 @@ export default function RegisterPage() {
       })
       navigate('/verify-email-pending')
     } catch (err: any) {
-      setError(err.response?.data?.error?.message || err.response?.data?.message || 'Registration failed. Please try again.')
+      setError(err.response?.data?.error?.message || err.response?.data?.message || t('registerPage.registrationFailed'))
     } finally {
       setLoading(false)
     }
@@ -81,8 +83,8 @@ export default function RegisterPage() {
       <div className="flex-grow flex items-center justify-center min-h-[calc(100vh-80px)] px-4 pt-20 pb-20">
         <div className="glass-panel p-10 w-full max-w-lg animate-fade-in border border-white/10 shadow-3xl">
           <div className="text-center mb-10">
-            <h1 className="text-4xl font-black text-white uppercase tracking-tight mb-2">Get Started</h1>
-            <p className="text-gray-400 font-light tracking-wide">Professional AI Face Search for your business</p>
+            <h1 className="text-4xl font-black text-white uppercase tracking-tight mb-2">{t('registerPage.title')}</h1>
+            <p className="text-gray-400 font-light tracking-wide">{t('registerPage.subtitle')}</p>
           </div>
 
           {error && (
@@ -96,7 +98,7 @@ export default function RegisterPage() {
             <div className="grid grid-cols-1 gap-6">
               <div>
                 <label className="block text-xs font-black text-gray-500 mb-2 uppercase tracking-widest">
-                  Full Name
+                  {t('registerPage.fullName')}
                 </label>
                 <input
                   type="text"
@@ -110,7 +112,7 @@ export default function RegisterPage() {
 
               <div>
                 <label className="block text-xs font-black text-gray-500 mb-2 uppercase tracking-widest">
-                  Business Email
+                  {t('registerPage.businessEmail')}
                 </label>
                 <input
                   type="email"
@@ -124,7 +126,7 @@ export default function RegisterPage() {
 
               <div>
                 <label className="block text-xs font-black text-gray-500 mb-2 uppercase tracking-widest">
-                  Phone Number (Romania Only)
+                  {t('registerPage.phone')}
                 </label>
                 <div className="flex gap-2">
                   <div className="bg-white/5 border border-white/10 rounded-xl px-3 py-3 text-gray-400 font-bold flex items-center">
@@ -144,13 +146,13 @@ export default function RegisterPage() {
                 </div>
                 <p className="text-[10px] text-primary-500 mt-2 font-bold uppercase tracking-tighter flex items-center gap-1">
                   <span className="w-1.5 h-1.5 bg-primary-500 rounded-full animate-pulse"></span>
-                  Service exclusively available in Romania
+                  {t('registerPage.phoneOnly')}
                 </p>
               </div>
 
               <div>
                 <label className="block text-xs font-black text-gray-500 mb-2 uppercase tracking-widest">
-                  Password
+                  {t('registerPage.password')}
                 </label>
                 <input
                   type="password"
@@ -162,7 +164,7 @@ export default function RegisterPage() {
                   placeholder="••••••••"
                 />
                 <p className="text-[11px] text-gray-500 mt-1.5">
-                  Min. 10 characters, uppercase, lowercase and a digit required.
+                  {t('registerPage.passwordHint')}
                 </p>
               </div>
             </div>
@@ -175,7 +177,9 @@ export default function RegisterPage() {
                   onChange={(e) => setTermsAccepted(e.target.checked)}
                   className="mt-1 w-4 h-4 rounded border-white/10 bg-white/5 text-primary-600 focus:ring-primary-500 focus:ring-offset-slate-900"
                 />
-                <span className="text-sm text-gray-400 leading-tight group-hover:text-gray-300"> I agree to the <Link to="/terms" className="text-primary-400 underline font-bold">Terms of Service</Link></span>
+                <span className="text-sm text-gray-400 leading-tight group-hover:text-gray-300">
+                  {t('registerPage.termsAgree')} <Link to="/terms" className="text-primary-400 underline font-bold">{t('registerPage.terms')}</Link>
+                </span>
               </label>
 
               <label className="flex items-start gap-4 group cursor-pointer">
@@ -185,7 +189,9 @@ export default function RegisterPage() {
                   onChange={(e) => setPrivacyAccepted(e.target.checked)}
                   className="mt-1 w-4 h-4 rounded border-white/10 bg-white/5 text-primary-600 focus:ring-primary-500 focus:ring-offset-slate-900"
                 />
-                <span className="text-sm text-gray-400 leading-tight group-hover:text-gray-300"> I have read the <Link to="/privacy" className="text-primary-400 underline font-bold">Privacy Policy</Link></span>
+                <span className="text-sm text-gray-400 leading-tight group-hover:text-gray-300">
+                  {t('registerPage.privacyRead')} <Link to="/privacy" className="text-primary-400 underline font-bold">{t('registerPage.privacy')}</Link>
+                </span>
               </label>
 
               <label className="flex items-start gap-4 group cursor-pointer">
@@ -195,7 +201,9 @@ export default function RegisterPage() {
                   onChange={(e) => setDpaAccepted(e.target.checked)}
                   className="mt-1 w-4 h-4 rounded border-white/10 bg-white/5 text-primary-600 focus:ring-primary-500 focus:ring-offset-slate-900"
                 />
-                <span className="text-sm text-gray-400 leading-tight group-hover:text-gray-300"> I accept the <Link to="/dpa" className="text-primary-400 underline font-bold">Data Processing Addendum (DPA)</Link> as a Data Controller</span>
+                <span className="text-sm text-gray-400 leading-tight group-hover:text-gray-300">
+                  {t('registerPage.dpaAccept')} <Link to="/dpa" className="text-primary-400 underline font-bold">{t('registerPage.dpa')}</Link> {t('registerPage.dpaRole')}
+                </span>
               </label>
 
               {/*
@@ -214,20 +222,10 @@ export default function RegisterPage() {
                   }
                   className="mt-1 w-4 h-4 rounded border-white/10 bg-white/5 text-primary-600 focus:ring-primary-500 focus:ring-offset-slate-900"
                 />
-                <span className="text-sm text-gray-400 leading-tight group-hover:text-gray-300">
-                  I consent to immediate service delivery and understand
-                  that, per OUG 34/2014, I therefore{' '}
-                  <strong className="text-gray-200">
-                    waive the 14-day right of withdrawal
-                  </strong>{' '}
-                  for digital content.{' '}
-                  <Link
-                    to="/consumer-rights"
-                    className="text-primary-400 underline font-bold"
-                  >
-                    Details
-                  </Link>
-                </span>
+                <span
+                  className="text-sm text-gray-400 leading-tight group-hover:text-gray-300"
+                  dangerouslySetInnerHTML={{ __html: t('registerPage.immediateDelivery') + ' <a href="/consumer-rights" class="text-primary-400 underline font-bold">' + t('registerPage.details') + '</a>' }}
+                />
               </label>
             </div>
 
@@ -238,14 +236,14 @@ export default function RegisterPage() {
             >
               {loading ? (
                 <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              ) : 'Create Professional Account'}
+              ) : t('registerPage.create')}
             </button>
           </form>
 
           <p className="mt-8 text-center text-gray-400">
-            Already have an account?{' '}
+            {t('registerPage.alreadyAccount')}{' '}
             <Link to="/login" className="text-primary-400 hover:text-primary-300 font-semibold transition-colors">
-              Sign In
+              {t('registerPage.signIn')}
             </Link>
           </p>
         </div>

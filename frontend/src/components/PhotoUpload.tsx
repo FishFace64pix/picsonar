@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { UploadProgress } from '../types'
 import imageCompression from 'browser-image-compression'
+import { useTranslation } from 'react-i18next'
 
 interface PhotoUploadProps {
   eventId: string
@@ -8,6 +9,7 @@ interface PhotoUploadProps {
 }
 
 export default function PhotoUpload({ eventId, onUploadComplete }: PhotoUploadProps) {
+  const { t } = useTranslation()
   const [uploads, setUploads] = useState<UploadProgress[]>([])
   const [dragging, setDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -161,9 +163,9 @@ export default function PhotoUpload({ eventId, onUploadComplete }: PhotoUploadPr
         </div>
 
         <div className="space-y-2">
-          <p className="text-xl font-medium text-white">Upload Photos</p>
+          <p className="text-xl font-medium text-white">{t('photoUpload.title')}</p>
           <p className="text-gray-400">
-            Drag files here or{' '}
+            {t('photoUpload.dragDrop').split('browse files')[0]}
             <button
               onClick={() => fileInputRef.current?.click()}
               className="text-primary-400 hover:text-primary-300 font-semibold underline decoration-2 underline-offset-4 transition-colors"
@@ -171,16 +173,16 @@ export default function PhotoUpload({ eventId, onUploadComplete }: PhotoUploadPr
               browse files
             </button>
           </p>
-          <p className="text-xs text-gray-500 pt-2 italic">Max optimization enabled (Up to 10x faster uploads)</p>
+          <p className="text-xs text-gray-500 pt-2 italic">{t('photoUpload.optimized')}</p>
         </div>
       </div>
 
       {uploads.length > 0 && (
         <div className="space-y-3 animate-fade-in max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
           <div className="flex justify-between items-center sticky top-0 bg-dark-900 z-10 py-1">
-            <h3 className="font-semibold text-white">Upload Queue</h3>
+            <h3 className="font-semibold text-white">{t('photoUpload.queue')}</h3>
             <span className="text-xs text-gray-400">
-              {uploads.filter(u => u.status === 'completed').length} / {uploads.length} Done
+              {uploads.filter(u => u.status === 'completed').length} / {uploads.length} {t('photoUpload.done')}
             </span>
           </div>
 
@@ -198,12 +200,12 @@ export default function PhotoUpload({ eventId, onUploadComplete }: PhotoUploadPr
                     {upload.file.name}
                   </span>
                   <span className="text-[10px] font-bold uppercase tracking-wider">
-                    {upload.status === 'completed' && <span className="text-green-400">Done</span>}
-                    {upload.status === 'error' && <span className="text-red-400">Error</span>}
-                    {upload.status === 'compressing' && <span className="text-yellow-400 animate-pulse">Compressing...</span>}
-                    {upload.status === 'processing' && <span className="text-blue-400 animate-pulse">AI Analysis...</span>}
+                    {upload.status === 'completed' && <span className="text-green-400">{t('photoUpload.statusDone')}</span>}
+                    {upload.status === 'error' && <span className="text-red-400">{t('photoUpload.statusError')}</span>}
+                    {upload.status === 'compressing' && <span className="text-yellow-400 animate-pulse">{t('photoUpload.statusCompressing')}</span>}
+                    {upload.status === 'processing' && <span className="text-blue-400 animate-pulse">{t('photoUpload.statusAnalyzing')}</span>}
                     {upload.status === 'uploading' && <span className="text-primary-400">{Math.round(upload.progress)}%</span>}
-                    {upload.status === 'pending' && <span className="text-gray-500">Wait...</span>}
+                    {upload.status === 'pending' && <span className="text-gray-500">{t('photoUpload.statusWait')}</span>}
                   </span>
                 </div>
 
