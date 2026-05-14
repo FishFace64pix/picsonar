@@ -41,7 +41,8 @@ provider:
     FRONTEND_URL: ${self:custom.frontendUrl}
     ALLOWED_ORIGINS: ${env:ALLOWED_ORIGINS}
     SES_SENDER_EMAIL: ${env:SES_SENDER_EMAIL, 'hello@picsonar.com'}
-    SUPPORT_EMAIL: ${env:SUPPORT_EMAIL, 'support@picsonar.com'}
+    SUPPORT_EMAIL: ${env:SUPPORT_EMAIL, 'hello@picsonar.com'}
+    PERSONAL_EMAIL: ${env:PERSONAL_EMAIL, ''}
     # Auth + payment secrets have NO defaults — a missing env is a deploy-time
     # error (loud) rather than silently signing with a guessable string. The
     # zod validator in src/config/env.ts will also fail-fast at cold start.

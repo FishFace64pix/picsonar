@@ -3,7 +3,8 @@ import { successResponse, errorResponse } from "../src/utils/response";
 import { sendEmail } from "../src/utils/email";
 import { enforceRateLimit, rateLimitIdentity } from "../src/middleware/rateLimit";
 
-const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || "support@picsonar.com";
+const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || "hello@picsonar.com";
+const PERSONAL_EMAIL = process.env.PERSONAL_EMAIL || "";
 
 function sanitizeHeader(value: string): string {
     // Strip CR/LF to prevent email header injection
@@ -36,8 +37,9 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         const safeEmail = sanitizeHeader(email)
         const safeMessage = stripHtml(message).slice(0, 10000)
 
+        const recipients = [SUPPORT_EMAIL, ...(PERSONAL_EMAIL ? [PERSONAL_EMAIL] : [])].join(',')
         await sendEmail({
-            to: SUPPORT_EMAIL,
+            to: recipients,
             subject: `New Contact Form Message from ${safeName}`,
             html: `
                 <h3>New Message from PicSonar Contact Form</h3>
