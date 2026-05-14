@@ -16,21 +16,22 @@ function stripHtml(value: string): string {
 }
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+    const requestOrigin = event.headers?.origin ?? event.headers?.Origin
     try {
         // 5 messages per IP per 10 minutes — prevents inbox flooding
         const identity = rateLimitIdentity(event)
         await enforceRateLimit({ endpoint: 'contact', identity, max: 5, windowSec: 600 })
 
-        if (!event.body) return errorResponse("Body missing", 400);
+        if (!event.body) return errorResponse("Body missing", 400, { requestOrigin });
         const { name, email, message } = JSON.parse(event.body);
 
         if (!name || !email || !message) {
-            return errorResponse("Missing fields", 400);
+            return errorResponse("Missing fields", 400, { requestOrigin });
         }
 
-        if (typeof name !== 'string' || name.length > 200) return errorResponse("Invalid name", 400)
-        if (typeof email !== 'string' || email.length > 254) return errorResponse("Invalid email", 400)
-        if (typeof message !== 'string' || message.length > 10000) return errorResponse("Message too long", 400)
+        if (typeof name !== 'string' || name.length > 200) return errorResponse("Invalid name", 400, { requestOrigin })
+        if (typeof email !== 'string' || email.length > 254) return errorResponse("Invalid email", 400, { requestOrigin })
+        if (typeof message !== 'string' || message.length > 10000) return errorResponse("Message too long", 400, { requestOrigin })
 
         // Sanitize user-controlled values before embedding in email headers/body
         const safeName = sanitizeHeader(name)
@@ -50,12 +51,12 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
             `
         });
 
-        return successResponse({ message: "Message sent successfully" });
+        return successResponse({ message: "Message sent successfully" }, 200, { requestOrigin });
     } catch (err: any) {
         if (err?.statusCode === 429) {
-            return errorResponse("Too many requests. Please try again later.", 429)
+            return errorResponse("Too many requests. Please try again later.", 429, { requestOrigin })
         }
         console.error("Email Error:", err);
-        return errorResponse("Failed to send message", 500);
+        return errorResponse("Failed to send message", 500, { requestOrigin });
     }
 };
