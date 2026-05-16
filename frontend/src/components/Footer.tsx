@@ -88,6 +88,17 @@ const Footer: React.FC = () => {
                             <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
                             EU Hosted • GDPR-aligned processing • Biometric data handled with explicit consent
                         </p>
+                        <p className="text-gray-600 text-[10px]">
+                            Built by{' '}
+                            <a
+                                href="https://www.kambyte.com"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="hover:text-primary-400 transition-colors underline"
+                            >
+                                Kambyte
+                            </a>
+                        </p>
                     </div>
                     <div className="flex space-x-6">
                         <a href="#" className="text-gray-600 hover:text-white transition-all hover:scale-110"><span className="sr-only">Twitter</span>𝕏</a>
