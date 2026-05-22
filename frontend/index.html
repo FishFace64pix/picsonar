@@ -22,11 +22,11 @@
     -->
     <meta http-equiv="Content-Security-Policy" content="
       default-src 'self';
-      script-src 'self' https://js.stripe.com https://m.stripe.network;
+      script-src 'self' https://js.stripe.com https://m.stripe.network https://www.googletagmanager.com;
       style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-      img-src 'self' data: blob: https://*.cloudfront.net https://*.amazonaws.com;
+      img-src 'self' data: blob: https://*.cloudfront.net https://*.amazonaws.com https://www.googletagmanager.com;
       font-src 'self' data: https://fonts.gstatic.com;
-      connect-src 'self' http://localhost:* ws://localhost:* https://*.execute-api.eu-central-1.amazonaws.com https://*.s3.eu-central-1.amazonaws.com https://api.picsonar.ro https://api.picsonar.com https://api.stripe.com https://m.stripe.network;
+      connect-src 'self' http://localhost:* ws://localhost:* https://*.execute-api.eu-central-1.amazonaws.com https://*.s3.eu-central-1.amazonaws.com https://api.picsonar.ro https://api.picsonar.com https://api.stripe.com https://m.stripe.network https://www.google-analytics.com https://analytics.google.com https://region1.google-analytics.com;
       frame-src https://js.stripe.com https://hooks.stripe.com;
       media-src 'self' blob:;
       object-src 'none';
@@ -35,6 +35,16 @@
     " />
 
     <meta name="google-site-verification" content="pk7-EWhZzPKZ1dRQ1y2oKhfSkoGVousm5bzRlnlVdps" />
+
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-3VH8M9R97R"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-3VH8M9R97R');
+    </script>
+
     <title>PicSonar - AI Event Photos</title>
 
     <!-- Primary Meta Tags -->
