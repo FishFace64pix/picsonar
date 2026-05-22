@@ -163,9 +163,21 @@ export default function RegisterPage() {
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary-500 transition-colors"
                   placeholder="••••••••"
                 />
-                <p className="text-[11px] text-gray-500 mt-1.5">
-                  {t('registerPage.passwordHint')}
-                </p>
+                {password.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {[
+                      { label: 'Min. 10 characters', ok: password.length >= 10 },
+                      { label: 'Uppercase letter (A-Z)', ok: /[A-Z]/.test(password) },
+                      { label: 'Lowercase letter (a-z)', ok: /[a-z]/.test(password) },
+                      { label: 'Number (0-9)', ok: /\d/.test(password) },
+                    ].map(({ label, ok }) => (
+                      <p key={label} className={`text-[11px] flex items-center gap-1.5 ${ok ? 'text-green-400' : 'text-red-400'}`}>
+                        <span>{ok ? '✓' : '✗'}</span>
+                        {label}
+                      </p>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
