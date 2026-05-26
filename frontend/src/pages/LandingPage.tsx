@@ -86,6 +86,11 @@ const LandingPage: React.FC = () => {
               {t('landing.photographer.ctaSecondary')}
             </a>
           </div>
+          {audience === 'photographers' && (
+            <p className="mt-5 text-sm text-gray-400 animate-fade-in">
+              ✓ {t('landing.photographer.freeBadge')}
+            </p>
+          )}
         </div>
       </section>
 

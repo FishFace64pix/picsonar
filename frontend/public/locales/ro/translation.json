@@ -83,8 +83,9 @@
             "description": "Câștigă",
             "descriptionEarn": "+300–700 RON extra",
             "descriptionSuffix": "pe eveniment cu o experiență foto premium despre care invitații vor vorbi.",
-            "cta": "Programează un Demo de 3 Min",
-            "ctaSecondary": "Vezi Cum Funcționează"
+            "cta": "Începeți gratuit",
+            "ctaSecondary": "Vezi Cum Funcționează",
+            "freeBadge": "Primul eveniment — gratuit. Fără card de credit."
         },
         "guest": {
             "badge": "Găsește-te în orice galerie instant",

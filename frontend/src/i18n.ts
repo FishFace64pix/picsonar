@@ -8,7 +8,7 @@ i18n
     .use(LanguageDetector)
     .use(initReactI18next)
     .init({
-        fallbackLng: 'en',
+        fallbackLng: 'ro',
         supportedLngs: ['en', 'ro'],
         interpolation: {
             escapeValue: false, // not needed for react as it escapes by default
@@ -17,7 +17,9 @@ i18n
             loadPath: '/locales/{{lng}}/{{ns}}.json',
         },
         detection: {
-            order: ['localStorage', 'navigator'],
+            // Only use localStorage — new visitors get 'ro' (fallbackLng).
+            // Clicking the EN/RO button in Navbar saves to localStorage.
+            order: ['localStorage'],
             caches: ['localStorage'],
         },
     });

@@ -83,8 +83,9 @@
             "description": "Earn",
             "descriptionEarn": "+300–700 RON extra",
             "descriptionSuffix": "per event with a premium AI photo experience that guests will talk about.",
-            "cta": "Book a 3-Min Demo",
-            "ctaSecondary": "See How It Works"
+            "cta": "Get Started Free",
+            "ctaSecondary": "See How It Works",
+            "freeBadge": "First event — free. No credit card required."
         },
         "guest": {
             "badge": "Find yourself in any gallery instantly",
