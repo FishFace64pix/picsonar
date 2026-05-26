@@ -15,6 +15,14 @@ export default function PricingPage() {
                     <p className="text-xl text-gray-400">{t('pricingPage.subtitle')}</p>
                 </div>
 
+                {/* Free first event banner */}
+                <div className="max-w-2xl mx-auto mb-10 flex items-center justify-center gap-3 bg-primary-500/10 border border-primary-500/30 rounded-2xl px-6 py-4 text-center">
+                    <span className="text-xl">🎁</span>
+                    <p className="text-primary-300 font-semibold text-sm sm:text-base">
+                        {t('pricingPage.freeBanner')}
+                    </p>
+                </div>
+
                 <div className="grid md:grid-cols-3 gap-8 max-w-7xl mx-auto">
                     {getPackages(t).map((pkg) => (
                         <div

@@ -139,6 +139,7 @@
     "pricingPage": {
         "title": "Simple & Transparent Pricing",
         "subtitle": "Choose the best package for your event.",
+        "freeBanner": "Your first event is completely free — no credit card required",
         "mostPopular": "MOST POPULAR",
         "select": "Select:"
     },
