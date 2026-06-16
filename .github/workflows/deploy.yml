@@ -79,7 +79,7 @@ jobs:
       # OIDC: assumes a role the AWS account has configured to trust this
       # repo's GitHub identity. No long-lived IAM user keys in repo secrets.
       - name: Configure AWS credentials via OIDC
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           role-session-name: gha-deploy-${{ needs.resolve-stage.outputs.stage }}-${{ github.run_id }}
@@ -137,7 +137,7 @@ jobs:
           VITE_STAGE: ${{ needs.resolve-stage.outputs.stage }}
 
       - name: Configure AWS credentials via OIDC
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           role-session-name: gha-deploy-frontend-${{ needs.resolve-stage.outputs.stage }}-${{ github.run_id }}
